@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Attendees · {{ event.title }}{% endblock %}
+{% block back %}<a class="back-btn" href="{{ url_for('event_detail', event_id=event.id) }}" aria-label="Back">&lt;</a>{% endblock %}
+{% block heading %}Attendees{% endblock %}
+
+{% block content %}
+<section class="card stats">
+  <div class="stat stat-go"><strong>{{ counts.going }}</strong><span>Going</span></div>
+  <div class="stat stat-pending"><strong>{{ counts.pending }}</strong><span>Pending</span></div>
+  <div class="stat stat-no"><strong>{{ counts.not_going }}</strong><span>Not Going</span></div>
+</section>
+
+<p class="summary">
+  {{ counts.going + counts.not_going }} responded ·
+  {{ counts.pending }} haven't responded
+</p>
+
+<form class="search" method="get">
+  <input type="search" name="q" value="{{ query }}" placeholder="🔍 Search members...">
+</form>
+
+<ul class="member-list">
+  {% for member in members %}
+  <li class="member">
+    <span>{{ member.name }}</span>
+    <span class="pill pill-{{ member.status|replace('_', '-') }}">{{ status_labels[member.status] }}</span>
+  </li>
+  {% else %}
+  <li class="empty">No members match "{{ query }}".</li>
+  {% endfor %}
+</ul>
+{% endblock %}

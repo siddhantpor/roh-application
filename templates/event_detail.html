@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }} · Rays of Hope{% endblock %}
+{% block back %}<a class="back-btn" href="{{ url_for('events') }}" aria-label="Back">&lt;</a>{% endblock %}
+{% block heading %}<span class="pill pill-pending">{{ event.date.strftime('%A, %B %-d') }}</span>{% endblock %}
+
+{% block content %}
+{% if event.flyer %}
+<img class="flyer" src="{{ url_for('static', filename=event.flyer) }}"
+     alt="Flyer for {{ event.title }}">
+{% else %}
+<div class="flyer flyer-placeholder">No flyer uploaded</div>
+{% endif %}
+
+<section class="event-header">
+  <p class="eyebrow">
+    {{ event.date.strftime('%a, %b %-d').upper() }},
+    {{ event.start_time|pretty_time }} – {{ event.end_time|pretty_time }}
+  </p>
+  <h2 class="event-title">{{ event.title }}</h2>
+  <p class="meta">
+    <span>📍 {{ event.location }}</span>
+    <span>● {{ counts.going }} Members Attending</span>
+  </p>
+</section>
+
+{% if event.description %}
+<section class="about">
+  <h3>About</h3>
+  {% for paragraph in event.description.split('\n\n') %}
+  <p>{{ paragraph }}</p>
+  {% endfor %}
+</section>
+{% endif %}
+
+<form class="rsvp" method="post" action="{{ url_for('rsvp', event_id=event.id) }}">
+  <button class="btn btn-go rsvp-btn {% if my_status == 'going' %}is-selected{% endif %}"
+          name="status" value="going" type="submit">
+    <span class="rsvp-icon">👍</span> I'm in!
+  </button>
+  <button class="btn btn-no rsvp-btn {% if my_status == 'not_going' %}is-selected{% endif %}"
+          name="status" value="not_going" type="submit">
+    <span class="rsvp-icon">👎</span> Not Going
+  </button>
+</form>
+
+<a class="btn btn-ghost btn-block" href="{{ url_for('attendees', event_id=event.id) }}">View attendees</a>
+{% endblock %}

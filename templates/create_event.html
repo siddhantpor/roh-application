@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Create an Event · Rays of Hope{% endblock %}
+{% block back %}<a class="back-btn" href="{{ url_for('events') }}" aria-label="Back">&lt;</a>{% endblock %}
+{% block heading %}Create an Event{% endblock %}
+
+{% block content %}
+{% if errors %}
+<ul class="alert">
+  {% for error in errors %}<li>{{ error }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<form class="stack" method="post" enctype="multipart/form-data" novalidate>
+  <label class="card field">
+    <span class="field-label">Event Title <span class="req">*</span></span>
+    <input type="text" name="title" placeholder="e.g., Leadership Workshop"
+           value="{{ form.title }}" required>
+  </label>
+
+  <label class="card field">
+    <span class="field-label">Date <span class="req">*</span></span>
+    <input type="date" name="date" value="{{ form.date }}" required>
+  </label>
+
+  <div class="row">
+    <label class="card field">
+      <span class="field-label">Start Time <span class="req">*</span></span>
+      <input type="time" name="start_time" value="{{ form.start_time }}" required>
+    </label>
+    <label class="card field">
+      <span class="field-label">End Time <span class="req">*</span></span>
+      <input type="time" name="end_time" value="{{ form.end_time }}" required>
+    </label>
+  </div>
+
+  <label class="card field">
+    <span class="field-label">Location <span class="req">*</span></span>
+    <input type="text" name="location" placeholder="📍 e.g., Somerset, NJ"
+           value="{{ form.location }}" required>
+  </label>
+
+  <label class="card field">
+    <span class="field-label">Description</span>
+    <textarea name="description" rows="4"
+              placeholder="Tell volunteers about this event (what to expect, the dress code, etc.)">{{ form.description }}</textarea>
+  </label>
+
+  <label class="card field">
+    <span class="field-label">Condensed Description</span>
+    <textarea name="condensed_description" rows="2" maxlength="200"
+              placeholder="One or two sentences used in the letter">{{ form.condensed_description }}</textarea>
+  </label>
+
+  <div class="card field">
+    <span class="field-label">Event Flyer</span>
+    <div class="file-row">
+      <span class="hint">Upload an image (up to 5 MB)</span>
+      <label class="btn btn-go btn-sm">
+        Choose file
+        <input class="visually-hidden" type="file" name="flyer" accept="image/*">
+      </label>
+    </div>
+  </div>
+
+  <button class="btn btn-primary btn-block btn-lg" type="submit">Create Event</button>
+</form>
+{% endblock %}
