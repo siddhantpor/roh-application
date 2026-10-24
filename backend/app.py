@@ -23,7 +23,7 @@ def admin_attendees(event_id):
     pending = len([m for m in members if m["status"] == "Pending"])
     not_going = len([m for m in members if m["status"] == "Not Going"])
     return flask.render_template("event-management/admin/attendees.html",
-                                 members=members, going=going,
+                                 event_id=event_id, members=members, going=going,
                                  pending=pending, not_going=not_going)
 
 @app.route("/member/events")

@@ -6,8 +6,10 @@
   </head>
   <body>
     {% include 'header.html' %}
-    <!-- TODO: Back button. -->
-    <h1 class="header-bold">Create an Event</h1>
+    <div class="header-row">
+      <a href="/admin/events" class="button button-shadow square-button">&lt;</a>
+      <h1 class="header-bold">Create an Event</h1>
+    </div>
 
     <!-- TODO: Form submission logic. Also, integrate w/ Cindy's database work! -->
     <form action="/admin/events/create" method="post" enctype="multipart/form-data">
