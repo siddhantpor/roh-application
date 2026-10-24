@@ -18,7 +18,13 @@ def admin_event_detail(event_id):
 
 @app.route("/admin/events/<event_id>/attendees")
 def admin_attendees(event_id):
-    return flask.render_template("event-management/admin/attendees.html")
+    members = []  # TODO: Integrate w/ Cindy's database work!
+    going = len([m for m in members if m["status"] == "Going"])
+    pending = len([m for m in members if m["status"] == "Pending"])
+    not_going = len([m for m in members if m["status"] == "Not Going"])
+    return flask.render_template("event-management/admin/attendees.html",
+                                 members=members, going=going,
+                                 pending=pending, not_going=not_going)
 
 @app.route("/member/events")
 def member_events():

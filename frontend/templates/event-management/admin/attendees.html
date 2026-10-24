@@ -6,7 +6,31 @@
   </head>
   <body>
     {% include 'header.html' %}
+    <!-- TODO: Back button. -->
     <h1>Attendees</h1>
+
+    <div>
+      <h1>{{ going }}</h1>
+      <p>Going</p>
+    </div>
+    <div>
+      <h1>{{ pending }}</h1>
+      <p>Pending</p>
+    </div>
+    <div>
+      <h1>{{ not_going }}</h1>
+      <p>Not Going</p>
+    </div>
+
+    <!-- TODO: Search bar. -->
+
+    {% for member in members %}
+      <div>
+        <p>{{ member.name }}</p>
+        <p>{{ member.status }}</p>
+      </div>
+    {% endfor %}
+
     {% include 'footer.html' %}
   </body>
 </html>

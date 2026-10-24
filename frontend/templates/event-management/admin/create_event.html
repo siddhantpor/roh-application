@@ -6,7 +6,50 @@
   </head>
   <body>
     {% include 'header.html' %}
+    <!-- TODO: Back button. -->
     <h1>Create an Event</h1>
+
+    <!-- TODO: Form submission logic. Also, integrate w/ Cindy's database work! -->
+    <form action="/admin/events/create" method="post" enctype="multipart/form-data">
+      <label>
+        Event Title *
+        <input type="text" name="title" placeholder="e.g., Leadership Workshop" required>
+      </label>
+
+      <label>
+        Date *
+        <input type="date" name="date" required>
+      </label>
+
+      <label>
+        Start Time *
+        <input type="time" name="start_time" required>
+      </label>
+
+      <label>
+        End Time *
+        <input type="time" name="end_time" required>
+      </label>
+
+      <label>
+        Location *
+        <input type="text" name="location" placeholder="e.g., Somerset, NJ" required>
+      </label>
+
+      <label>
+        Description
+        <textarea name="description" placeholder="Tell volunteers about this event (what to expect, the dress code, etc.)"></textarea>
+      </label>
+
+      <!-- TODO: Image upload logic. Also, integrate w/ Cloudinary! -->
+      <label>
+        Event Flyer
+        <input type="file" name="flyer" accept="image/*">
+      </label>
+
+      <button type="submit">Create Event</button>
+    </form>
+
     {% include 'footer.html' %}
   </body>
 </html>
