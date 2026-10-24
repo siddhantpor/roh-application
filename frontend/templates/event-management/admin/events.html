@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <h2>Hello Admin!</h2> <!-- TODO: Replace `Admin` w/ user's first name. -->
+
+    <h3><a href="/admin/events/create">Create an Event</a></h3>
+    <h3><a href="#">Manage Members</a></h3> <!-- TODO: Update href. -->
+
+    <h6>Your Upcoming Events</h6>
+
+    {% for event in admin_events %}
+      <div class="event-card">
+        <!-- TODO: Buttons to edit event details + lock/unlock codes. -->
+        <h4>{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</h4>
+        <h1>{{ event.title }}</h1>
+        <h5>{{ event.location }} · {{ event.attending }} Members Attending</h5>
+        <div>
+          <p>Private Check-in Code</p>
+          <p>{{ event.checkin_code }}</p>
+        </div>
+        <div>
+          <p>Private Check-out Code</p>
+          <p>{{ event.checkout_code }}</p>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% include 'footer.html' %}
+  </body>
+</html>

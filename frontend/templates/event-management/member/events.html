@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <h2>Hello Student!</h2> <!-- TODO: Replace `Student` w/ user's first name. -->
+
+    <h3><a href="#">My Hours</a></h3> <!-- TODO: Update href. -->
+
+    <h6>Your Upcoming Events</h6>
+
+    {% for event in upcoming_events %}
+      <div class="event-card">
+        <a href="/member/events/{{ event.id }}">View Details</a>
+        <h4>{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</h4>
+        <h1>{{ event.title }}</h1>
+        <h5>{{ event.location }} · {{ event.attending }} Members Attending</h5>
+        <div>
+          <p>Member Check-in</p>
+          <p>Check-in Locked</p> <!-- TODO: Integrate this w/ Siddhant + Chinmayi's work! -->
+        </div>
+      </div>
+    {% endfor %}
+
+    <h6>Other Events</h6>
+
+    {% for event in other_events %}
+      <div class="event-card">
+        <a href="/member/events/{{ event.id }}">Register</a>
+        <h4>{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</h4>
+        <h1>{{ event.title }}</h1>
+        <h5>{{ event.location }} · {{ event.attending }} Members Attending</h5>
+      </div>
+    {% endfor %}
+
+    {% include 'footer.html' %}
+  </body>
+</html>
