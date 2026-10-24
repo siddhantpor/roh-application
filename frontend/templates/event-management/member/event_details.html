@@ -13,15 +13,17 @@
       <img src="{{ event.flyer }}">
     {% endif %}
 
-    <h4>{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</h4>
-    <h1>{{ event.title }}</h1>
-    <h5>{{ event.location }} · {{ event.attending }} Members Attending</h5>
+    <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
+    <h1 class="header-bold">{{ event.title }}</h1>
+    <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
 
     <p><strong>About</strong></p>
     <p>{{ event.description }}</p>
 
-    <button>I'm in!</button> <!-- TODO: Integrate with Cindy's database work. -->
-    <button>Not Going</button>
+    <div class="button-row">
+      <button class="button rsvp-button button-green">I'm in!</button> <!-- TODO: Integrate with Cindy's database work. -->
+      <button class="button rsvp-button button-red">Not Going</button>
+    </div>
 
     {% include 'footer.html' %}
   </body>

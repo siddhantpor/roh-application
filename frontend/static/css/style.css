@@ -9,55 +9,201 @@
   --yellow: #fcf880;
   --green: #d3ffc6;
   --red: #f35b5b;
+  --light-red: #f79b9b;
 }
 
 body {
   background: var(--background);
   color: var(--black);
   font-family: "JetBrains Mono", monospace;
-}
-
-h1 {
-  font-size: 20px;
-}
-
-h2 {
-  font-size: 20px;
-  font-weight: 400;
-  text-align: center;
-}
-
-h3 {
   font-size: 14px;
-  font-weight: 400;
-}
-
-h4 {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--gray);
-}
-
-h5 {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--dark-gray);
-}
-
-h6 {
-  font-size: 10px;
-  font-weight: 400;
 }
 
 a {
   color: var(--black);
 }
 
-p,
+button, input, textarea {
+  font-family: inherit;
+}
+
 button {
   font-size: 14px;
 }
 
-button {
-  font-family: inherit;
+input, textarea {
+  font-size: 12px;
+}
+
+.number-bold {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.header-bold {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.header {
+  font-size: 20px;
+}
+
+.code {
+  font-size: 18px;
+}
+
+.subtext-bold {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.subtext {
+  font-size: 12px;
+}
+
+.caption {
+  font-size: 10px;
+}
+
+.label {
+  font-size: 9px;
+}
+
+.text-gray {
+  color: var(--gray);
+}
+
+.text-dark-gray {
+  color: var(--dark-gray);
+}
+
+.text-red {
+  color: var(--red);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: none;
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--black);
+  text-decoration: none;
+}
+
+.button:active {
+  transform: translateY(1px);
+}
+
+.home-button {
+  height: 55px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  box-shadow: 2px 2px 4px rgb(0 0 0 / 0.25);
+}
+
+.button-row {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.event-card-button {
+  height: 34px;
+  font-size: 12px;
+}
+
+.rsvp-button {
+  height: 70px;
+}
+
+.create-event-button {
+  height: 48px;
+  border-radius: 20px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.button-green {
+  background: var(--green);
+}
+
+.button-yellow {
+  background: var(--yellow);
+}
+
+.button-red {
+  background: var(--light-red);
+}
+
+.event-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 21px;
+  padding: 12px 21px 21px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  background: var(--white);
+  box-shadow: 2px 2px 4px rgb(0 0 0 / 0.25);
+}
+
+.event-card p {
+  margin: 0;
+}
+
+.event-card .event-card-button {
+  align-self: flex-end;
+}
+
+.code-card {
+  /* TODO */
+}
+
+.create-event-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  background: var(--white);
+  box-shadow: 2px 2px 4px rgb(0 0 0 / 0.25);
+}
+
+.create-event-card input,
+.create-event-card textarea {
+  box-sizing: border-box;
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+}
+
+.create-event-card textarea {
+  height: 90px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.create-event-card-row {
+  display: flex;
+  gap: 11px;
+}
+
+.create-event-card-row > .create-event-card {
+  flex: 1;
+}
+
+.create-event-card input[type="file"] {
+  height: auto;
+  padding: 8px 10px;
 }

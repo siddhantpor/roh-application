@@ -7,47 +7,49 @@
   <body>
     {% include 'header.html' %}
     <!-- TODO: Back button. -->
-    <h1>Create an Event</h1>
+    <h1 class="header-bold">Create an Event</h1>
 
     <!-- TODO: Form submission logic. Also, integrate w/ Cindy's database work! -->
     <form action="/admin/events/create" method="post" enctype="multipart/form-data">
-      <label>
-        Event Title *
+      <label class="create-event-card">
+        <strong>Event Title <span class="text-red">*</span></strong>
         <input type="text" name="title" placeholder="e.g., Leadership Workshop" required>
       </label>
 
-      <label>
-        Date *
+      <label class="create-event-card">
+        <strong>Date <span class="text-red">*</span></strong>
         <input type="date" name="date" required>
       </label>
 
-      <label>
-        Start Time *
-        <input type="time" name="start_time" required>
-      </label>
+      <div class="create-event-card-row">
+        <label class="create-event-card">
+          <strong>Start Time <span class="text-red">*</span></strong>
+          <input type="time" name="start_time" required>
+        </label>
 
-      <label>
-        End Time *
-        <input type="time" name="end_time" required>
-      </label>
+        <label class="create-event-card">
+          <strong>End Time <span class="text-red">*</span></strong>
+          <input type="time" name="end_time" required>
+        </label>
+      </div>
 
-      <label>
-        Location *
+      <label class="create-event-card">
+        <strong>Location <span class="text-red">*</span></strong>
         <input type="text" name="location" placeholder="e.g., Somerset, NJ" required>
       </label>
 
-      <label>
-        Description
+      <label class="create-event-card">
+        <strong>Description</strong>
         <textarea name="description" placeholder="Tell volunteers about this event (what to expect, the dress code, etc.)"></textarea>
       </label>
 
       <!-- TODO: Image upload logic. Also, integrate w/ Cloudinary! -->
-      <label>
-        Event Flyer
+      <label class="create-event-card">
+        <strong>Event Flyer</strong>
         <input type="file" name="flyer" accept="image/*">
       </label>
 
-      <button type="submit">Create Event</button>
+      <button type="submit" class="button create-event-button button-yellow">Create Event</button>
     </form>
 
     {% include 'footer.html' %}

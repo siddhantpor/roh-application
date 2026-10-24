@@ -7,18 +7,18 @@
   <body>
     {% include 'header.html' %}
     <!-- TODO: Back button. -->
-    <h1>Attendees</h1>
+    <h1 class="header-bold">Attendees</h1>
 
     <div>
-      <h1>{{ going }}</h1>
+      <p class="number-bold">{{ going }}</p>
       <p>Going</p>
     </div>
     <div>
-      <h1>{{ pending }}</h1>
+      <p class="number-bold">{{ pending }}</p>
       <p>Pending</p>
     </div>
     <div>
-      <h1>{{ not_going }}</h1>
+      <p class="number-bold">{{ not_going }}</p>
       <p>Not Going</p>
     </div>
 
@@ -26,8 +26,8 @@
 
     {% for member in members %}
       <div>
-        <p>{{ member.name }}</p>
-        <p>{{ member.status }}</p>
+        <p class="subtext-bold text-dark-gray">{{ member.name }}</p>
+        <p class="caption">{{ member.status }}</p>
       </div>
     {% endfor %}
 
