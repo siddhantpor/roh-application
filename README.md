@@ -65,7 +65,6 @@ All of these are needed by the check-in / hours subsystem. Need to discuss:
 
 ## Design choices (check-in / hours subsystem)
 
-Each of these is a one-line switch or a single function in `backend/checkin.py`.
 
 1. **Who can check in?** Anyone logged in who knows the code, RSVP or not (matches how
    the current Google Form works, where walk-ins happen). The Project Overview says
