@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/check-in.css">
+  </head>
+  <body>
+    <div class="page">
+    {% include 'check-in/header.html' %}
+
+    {# ---------- Figma S11b ---------- #}
+    <div class="header-row">
+      <a href="/admin/events/{{ event.event_id }}/hours" class="button button-shadow square-button">&lt;</a>
+      <h1 class="header-bold page-title">Edit Hours</h1>
+    </div>
+    <p class="caption text-center text-gray">{{ event.event_title }} · {{ event_when }}</p>
+
+    {% if msg %}
+      <p class="msg text-center text-red">{{ msg }}</p>
+    {% endif %}
+
+    <!-- Use post instead of get for security. -->
+    <form action="/admin/events/{{ event.event_id }}/hours/{{ record.user_id }}/handleedit" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="field-card">
+        <label>Volunteer</label>
+        <p class="subtext-bold">{{ record.display_name }}</p>
+      </div>
+
+      <div class="field-card">
+        <label>Event date</label>
+        <p class="subtext">{{ event.event_date }}</p>
+      </div>
+
+      <div class="field-card">
+        <label>Check-in</label>
+        <input type="datetime-local" name="checkin_time"
+               value="{{ record.checkin_input }}" required>
+      </div>
+      <div class="field-card">
+        <label>Check-out</label>
+        <input type="datetime-local" name="checkout_time"
+               value="{{ record.checkout_input }}" required>
+      </div>
+
+      <div class="field-card">
+        <label>Total (as recorded)</label>
+        <p class="subtext">{{ record.duration_display or '(no check-out yet)' }}</p>
+      </div>
+
+      <div class="field-card">
+        <label>Reason for change <span class="text-red">*</span></label>
+        <textarea name="reason" required pattern=".*\S.*"
+                  placeholder="e.g. Forgot to check out, left at 6:15."></textarea>
+      </div>
+
+      <button type="submit" name="action" value="save"
+              class="button button-green wide-button">Save &amp; Approve</button>
+      <button type="submit" name="action" value="reject" formnovalidate
+              class="button button-red wide-button">Reject entry</button>
+    </form>
+
+    {% include 'check-in/footer.html' %}
+    </div>
+  </body>
+</html>

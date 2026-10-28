@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/check-in.css">
+  </head>
+  <body>
+    <div class="page">
+    {% include 'check-in/header.html' %}
+
+    <div class="header-row">
+      <a href="/admin/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
+      <h1 class="header-bold page-title">Event Codes</h1>
+    </div>
+    <p class="caption text-center text-gray">{{ event.event_title }} · {{ event_when }}</p>
+
+    {% if event.checkin_code %}
+      <div class="field-card">
+        <label>Check-in code</label>
+        <p class="code-display">{{ event.checkin_code }}</p>
+        <p class="caption text-gray">Give this to members when they arrive.</p>
+      </div>
+      <div class="field-card">
+        <label>Check-out code</label>
+        <p class="code-display">{{ event.checkout_code }}</p>
+        <p class="caption text-gray">Give this to members when they leave.</p>
+      </div>
+    {% else %}
+      <div class="field-card">
+        <p class="subtext text-dark-gray">This event has no codes yet.</p>
+      </div>
+    {% endif %}
+
+    <!-- Use post instead of get for security. -->
+    <form action="/admin/events/{{ event.event_id }}/handlecodes" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="button button-yellow wide-button">
+        {% if event.checkin_code %}Generate new codes{% else %}Generate codes{% endif %}
+      </button>
+    </form>
+    {% if event.checkin_code %}
+      <p class="caption text-center text-gray">New codes replace the old ones. Members who already checked in are not affected.</p>
+    {% endif %}
+
+    <p class="text-center"><a href="/admin/events/{{ event.event_id }}/hours">Review hours for this event</a></p>
+
+    {% include 'check-in/footer.html' %}
+    </div>
+  </body>
+</html>

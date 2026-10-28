@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'check-in/header.html' %}
+    <h1 class="header-bold">Check-in subsystem (dev)</h1>
+
+    {% if not username %}
+      <p><a href="/login">Log in</a> first.</p>
+    {% endif %}
+
+    <p class="caption">Member</p>
+    <a href="/member/events/1/checkin">Check in / out of event 1</a><br>
+    <a href="/member/events/2/checkin">Check in to event 2 (no codes yet)</a><br>
+
+    <p class="caption">Admin (log in as tdouglas)</p>
+    <a href="/admin/events/1/codes">Codes for event 1</a><br>
+    <a href="/admin/events/2/codes">Codes for event 2</a><br>
+    <a href="/admin/events/1/hours">Review hours for event 1</a><br>
+
+    {% include 'check-in/footer.html' %}
+  </body>
+</html>
