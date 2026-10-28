@@ -33,6 +33,7 @@ import datetime
 import zoneinfo
 import secrets
 import flask
+import string 
 import auth
 import database
 
@@ -48,6 +49,8 @@ LOCAL_TIMEZONE = zoneinfo.ZoneInfo('America/New_York')
 # misread when an admin reads a code out loud).
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 CODE_LENGTH = 6
+
+DIGITS = string.digits
 
 #-----------------------------------------------------------------------
 # Route registration
@@ -473,12 +476,23 @@ def _add_display_fields(record):
 
 #-----------------------------------------------------------------------
 
-def _generate_code():
+def load_words(path):
+    words = []
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) == 2:
+                words.append(parts[1])
+    return words
 
-    # secrets, not random: random is predictable, and the whole point
-    # of the code is that members can't guess it.
-    return ''.join(secrets.choice(CODE_ALPHABET)
-        for _ in range(CODE_LENGTH))
+WORDS = load_words("eff_large_wordlist.txt")
+
+#-----------------------------------------------------------------------
+
+def _generate_code():
+    word = secrets.choice(WORDS)
+    digits = ''.join(secrets.choice(DIGITS) for _ in range(3))
+    return f"{word}{digits}"
 
 #-----------------------------------------------------------------------
 
