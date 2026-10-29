@@ -2,11 +2,9 @@
 
 #-----------------------------------------------------------------------
 # databasesqlite.py
-# SQLite version of the database functions for the check-in / check-out /
-# hours subsystem. DEV ONLY: lets the app run on any laptop with no setup.
-# databasepostgresql.py is the real one (Neon). database.py picks.
-# Pattern: Dondero's PennyAuthHomeGrown database.py (SQLite,
-# contextlib.closing, one function per query, dicts out).
+# SQLite version of the database functions (check-in / check-out /
+# hours). For local dev; databasepostgresql.py is the Neon version.
+# One function per query, dicts out.
 #-----------------------------------------------------------------------
 
 import os
@@ -16,11 +14,8 @@ import datetime
 
 #-----------------------------------------------------------------------
 
-# Dondero uses 'file:penny.sqlite', which is relative to wherever you
-# run python from (cd backend && python x.py finds it; python
-# backend/x.py from the repo root silently creates an empty roh.sqlite
-# in the wrong place). Anchoring on this file's own directory avoids
-# that.
+# Path is relative to this file, not the working directory, so it
+# works whether you run from backend/ or the repo root.
 _DATABASE_URL = 'file:' + os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'roh.sqlite')
 
@@ -252,9 +247,8 @@ def get_attendance(event_id):
 def update_attendance(user_id, event_id, checkin_time, checkout_time,
     approved):
 
-    # Replace both records in one transaction (Dondero's put_userinfo
-    # does BEGIN / DELETE / INSERT / COMMIT the same way). A None time
-    # means "no record", so an admin can clear a bad checkout.
+    # Replace both records in one transaction. A None time means
+    # "no record", so an admin can clear a bad checkout.
 
     with contextlib.closing(
         sqlite3.connect(_DATABASE_URL + '?mode=rw',
@@ -339,7 +333,7 @@ def _hours_between(checkin_time, checkout_time):
 
 #-----------------------------------------------------------------------
 
-# For testing (run: python databasesqlite.py). Assumes roh.sqlite was just
+# For testing (python databasesqlite.py). Assumes roh.sqlite was just
 # built from roh.sql. Leaves the database as it found it.
 
 def _test():

@@ -2,38 +2,24 @@
 
 #-----------------------------------------------------------------------
 # checkin.py
-# Routes for the check-in / check-out / hours subsystem.
+# Routes for check-in / check-out / review hours. Registered with
+# init(app) so they can go on any Flask app. GET handlers render a
+# page; POST handlers validate, write, and redirect back.
 #
-# Written as init(app) + app.add_url_rule(...) in the style of
-# Dondero's auth.py, so these routes can be registered on ANY Flask
-# app: runcheckin.py (standalone, for developing this subsystem) now,
-# the team's app.py at integration time. Each handler follows his
-# add() / handle_add() pattern from penny.py: authenticate, authorize,
-# read the form, validate, call database, then render a page (GET) or
-# redirect back to one (POST).
+# Screens: S10 member check-in (3 states), S6 admin codes,
+# S11a admin review list, S11b admin edit one entry.
 #
-# Screens (Figma): S10 member check-in page (three states: not checked
-# in / checked in / checked out), S6 admin codes, S11a admin review
-# hours list, S11b admin edit one member's hours.
-#
-# For now check-in can happen any time. Please change later
-# (Tanisha: check-in should open ~15 min before event start).
-#
-# For now anyone logged in who knows the code can check in, RSVP or
-# not. Need to change if we want to require an RSVP of "going": add
-#     elif database.get_rsvp(user_id, event_id) != True:
-#         msg = 'You have not RSVP\'d to this event.'
-# to the chain in handle_member_checkin, before the add_checkin call.
-#
-# For now "Reason for change" on the edit page is shown but not
-# stored (no column for it). Need to change if we want to keep it.
+# TODO: check-in window (~15 min before event start); currently any time.
+# TODO: require RSVP "going" to check in? Currently anyone with the code.
+#       (add `elif database.get_rsvp(user_id, event_id) != True:` to
+#       handle_member_checkin)
+# TODO: "reason for change" on S11b is shown, not stored (no column).
 #-----------------------------------------------------------------------
 
 import datetime
 import zoneinfo
 import secrets
 import flask
-import string 
 import auth
 import database
 
@@ -41,16 +27,12 @@ import database
 # Design choices (see README.md, "Design choices")
 #-----------------------------------------------------------------------
 
-# Times are stored in UTC (ISO 8601 text) and shown to people in this
-# zone. Change here if the org moves.
+# Times are stored in UTC and shown in this zone.
 LOCAL_TIMEZONE = zoneinfo.ZoneInfo('America/New_York')
 
-# Codes: 6 chars from this alphabet (no 0/O or 1/I, which are easy to
-# misread when an admin reads a code out loud).
+# Codes: 6 chars, no 0/O or 1/I (easy to misread when read aloud).
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 CODE_LENGTH = 6
-
-DIGITS = string.digits
 
 #-----------------------------------------------------------------------
 # Route registration
@@ -103,7 +85,6 @@ def member_checkin(event_id):
     checkin = database.get_checkin(user_id, event_id)
     checkout = database.get_checkout(user_id, event_id)
 
-    # Which of the three states the page is in.
     if checkin is None:
         state = 'not_checked_in'
     elif checkout is None:
@@ -111,7 +92,6 @@ def member_checkin(event_id):
     else:
         state = 'checked_out'
 
-    # Strings the template shows. All times local.
     checkin_display = None
     checkout_display = None
     duration_display = None
@@ -166,8 +146,7 @@ def handle_member_checkin(event_id):
         else:
             msg = ''
 
-    # Post/redirect/get: the page re-reads the database and shows the
-    # right state; a browser refresh won't resubmit the form.
+    # Redirect so a refresh doesn't resubmit the form.
     return flask.redirect(_member_url(event_id, msg))
 
 #-----------------------------------------------------------------------
@@ -236,8 +215,7 @@ def handle_admin_codes(event_id):
     if event is None:
         flask.abort(404)
 
-    # (Re)generating replaces both codes. Members who already checked
-    # in keep their records; only future entries need the new codes.
+    # Replaces both codes; existing check-in records are unaffected.
     checkin_code = _generate_code()
     checkout_code = _generate_code()
     while checkout_code == checkin_code:
@@ -261,8 +239,7 @@ def admin_hours(event_id):
     if event is None:
         flask.abort(404)
 
-    # Split into the two sections on S11a. "Ready" = has a check-out
-    # (so hours can be computed); "still checked in" = no check-out.
+    # S11a sections: "ready" = has a check-out, "still in" = no check-out.
     ready = []
     still_in = []
     for record in database.get_attendance(event_id):
@@ -289,7 +266,7 @@ def admin_hours(event_id):
 
 def handle_admin_approve(event_id):
 
-    # The green "Approve" pill on one row: approve as-is, no edits.
+    # Approve one row as-is.
 
     auth.authenticate()
     username = auth.get_username()
@@ -322,7 +299,7 @@ def handle_admin_approve(event_id):
 
 def handle_admin_approve_all(event_id):
 
-    # "Approve all N": every ready, not-yet-approved row.
+    # Approve every ready, not-yet-approved row.
 
     auth.authenticate()
     username = auth.get_username()
@@ -381,8 +358,7 @@ def admin_edit_hours(event_id, user_id):
 
 def handle_admin_edit_hours(event_id, user_id):
 
-    # Two buttons on S11b post here: action=save ("Save & Approve")
-    # and action=reject ("Reject entry").
+    # Both S11b buttons post here: action=save or action=reject.
 
     auth.authenticate()
     username = auth.get_username()
@@ -400,8 +376,7 @@ def handle_admin_edit_hours(event_id, user_id):
     action = flask.request.form.get('action')
 
     if action == 'reject':
-        # Delete both records: the member checked in by mistake, or
-        # the entry can't be trusted. They can check in again.
+        # Delete both records; the member can check in again.
         database.update_attendance(user_id, event_id, None, None, False)
         msg = f'Rejected {record["display_name"]}\'s entry'
         return flask.redirect(
@@ -409,7 +384,7 @@ def handle_admin_edit_hours(event_id, user_id):
 
     checkin_local = flask.request.form.get('checkin_time')
     checkout_local = flask.request.form.get('checkout_time')
-    reason = flask.request.form.get('reason')   # shown, not stored (yet)
+    reason = flask.request.form.get('reason')   # TODO: not stored yet
 
     checkin_time = _to_utc(checkin_local)
     checkout_time = _to_utc(checkout_local)
@@ -463,8 +438,7 @@ def _get_attendance_record(event_id, user_id):
 
 def _add_display_fields(record):
 
-    # Local-time strings for the admin pages. 'approved' means both
-    # halves are approved.
+    # Local-time strings for the admin pages.
     record['checkin_display'] = _format_time(record['checkin_time'])
     record['checkout_display'] = _format_time(record['checkout_time'])
     record['checkin_input'] = _to_local(record['checkin_time'])
@@ -476,37 +450,24 @@ def _add_display_fields(record):
 
 #-----------------------------------------------------------------------
 
-def load_words(path):
-    words = []
-    with open(path, encoding="utf-8") as f:
-        for line in f:
-            parts = line.split()
-            if len(parts) == 2:
-                words.append(parts[1])
-    return words
-
-WORDS = load_words("eff_large_wordlist.txt")
-
-#-----------------------------------------------------------------------
-
 def _generate_code():
-    word = secrets.choice(WORDS)
-    digits = ''.join(secrets.choice(DIGITS) for _ in range(3))
-    return f"{word}{digits}"
+
+    # secrets, not random: codes must not be guessable.
+    return ''.join(secrets.choice(CODE_ALPHABET)
+        for _ in range(CODE_LENGTH))
 
 #-----------------------------------------------------------------------
 
 def _clean_code(code):
 
-    # Members type codes on phones: ignore case and spaces.
+    # Ignore case and spaces (typed on phones).
     return code.strip().upper().replace(' ', '')
 
 #-----------------------------------------------------------------------
 
 def _now_utc():
 
-    # ISO 8601, seconds precision, no tz suffix: matches the seed data
-    # in roh.sql, e.g. '2026-11-07T14:02:00'.
+    # ISO 8601 UTC, seconds precision, e.g. '2026-11-07T14:02:00'.
     now = datetime.datetime.now(datetime.timezone.utc)
     return now.replace(microsecond=0, tzinfo=None).isoformat()
 
@@ -514,8 +475,7 @@ def _now_utc():
 
 def _hours_between(utc_a, utc_b):
 
-    # Same rule as database._hours_between, kept here for "time so far"
-    # (check-in to now), which the database never sees.
+    # Same rule as database._hours_between; used for "time so far".
     if utc_a is None or utc_b is None:
         return None
     seconds = (datetime.datetime.fromisoformat(utc_b)
@@ -536,8 +496,7 @@ def _to_local_datetime(utc_text):
 
 def _to_local(utc_text):
 
-    # '2026-11-07T14:02:00' (UTC) -> '2026-11-07T09:02' (local), which
-    # is the format an <input type="datetime-local"> wants. None -> ''.
+    # UTC text -> 'YYYY-MM-DDTHH:MM' local, for <input type="datetime-local">.
     if utc_text is None:
         return ''
     return _to_local_datetime(utc_text).strftime('%Y-%m-%dT%H:%M')
@@ -546,8 +505,7 @@ def _to_local(utc_text):
 
 def _to_utc(local_text):
 
-    # Inverse of _to_local, for admin-edited times. Blank -> None.
-    # Unparseable -> None (callers check).
+    # Inverse of _to_local. Blank or unparseable -> None.
     if (local_text is None) or (local_text.strip() == ''):
         return None
     try:
@@ -562,7 +520,7 @@ def _to_utc(local_text):
 
 def _format_time(utc_text):
 
-    # '2026-11-07T14:02:00' -> '9:02 AM' (local), as on the Figma.
+    # '2026-11-07T14:02:00' -> '9:02 AM' (local).
     if utc_text is None:
         return None
     local = _to_local_datetime(utc_text)
@@ -572,7 +530,7 @@ def _format_time(utc_text):
 
 def _format_duration(hours):
 
-    # 1.2 -> '1h 12m', as on the Figma. None -> None.
+    # 1.2 -> '1h 12m'. None -> None.
     if hours is None:
         return None
     minutes = int(round(hours * 60))
@@ -582,7 +540,7 @@ def _format_duration(hours):
 
 def _format_event_when(event):
 
-    # '2026-11-07' + '09:00' -> 'Sat, Nov 7, 9:00 AM', as on the Figma.
+    # '2026-11-07' + '09:00' -> 'Sat, Nov 7, 9:00 AM'.
     try:
         day = datetime.date.fromisoformat(event['event_date'])
     except (TypeError, ValueError):

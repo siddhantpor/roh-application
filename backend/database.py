@@ -2,18 +2,10 @@
 
 #-----------------------------------------------------------------------
 # database.py
-# Picks the database backend. Wanted to figure out the database stuff cause my parts depend so much on in even without the postgre.
-#
-#   DATABASE_URL set in .env (or the environment)  -> databasepostgresql
-#   DATABASE_URL not set                            -> databasesqlite
-#
-# So: on a laptop with no .env, the app runs against backend/roh.sqlite
-# (build it from roh.sql). With a Neon connection string in .env, the
-# same code runs against Neon (build it from roh_postgres.sql).
-#
-# Dondero ships database.py / databasesqlite.py / databasepostgresql.py
-# side by side and copies one over database.py in his pennywise app; 
-# doing same here
+# Picks the database backend:
+#   DATABASE_URL set (in .env)  -> databasepostgresql (Neon)
+#   DATABASE_URL not set        -> databasesqlite (local roh.sqlite)
+# Routes just do "import database".
 #-----------------------------------------------------------------------
 
 import os
