@@ -2,15 +2,14 @@
 
 #-----------------------------------------------------------------------
 # runcheckin.py
-# Standalone Flask app for developing the check-in / hours subsystem
-# on its own. Dondero's penny.py + runserver.py in one file.
+# Standalone app for running the check-in / hours subsystem by itself.
 #
 #     cd backend
 #     python runcheckin.py 5001
 #     open http://localhost:5001
 #
-# At integration time the team's app does the same two init() calls
-# (auth.init(app), checkin.init(app)) and this file can go away.
+# The team app only needs the two init() calls below; this file can go
+# once that's wired up.
 #-----------------------------------------------------------------------
 
 import os
@@ -37,7 +36,7 @@ app = flask.Flask(__name__,
     template_folder=os.path.join(_FRONTEND_DIR, 'templates'),
     static_folder=os.path.join(_FRONTEND_DIR, 'static'))
 app.secret_key = _APP_SECRET_KEY
-flask_wtf.csrf.CSRFProtect(app)   # every POST form needs {{csrf_token()}}
+flask_wtf.csrf.CSRFProtect(app)   # POST forms must include csrf_token
 
 auth.init(app)
 checkin.init(app)
