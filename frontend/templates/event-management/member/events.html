@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <h1 class="header text-center">Hello Student!</h1> <!-- TODO: Replace `Student` w/ user's first name. -->
+
+    <div class="button-row">
+      <a href="#" class="button button-shadow home-button">My Hours</a> <!-- TODO: Update href. -->
+    </div>
+
+    <p class="caption">Your Upcoming Events</p>
+
+    {% for event in upcoming_events %}
+      <div class="event-card">
+        <a href="/member/events/{{ event.id }}" class="button event-card-button button-green">View Details</a>
+        <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
+        <p class="header-bold">{{ event.title }}</p>
+        <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+        <div class="code-card">
+          <p class="label">Member Check-in</p>
+          <p class="text-dark-gray">Check-in Locked</p> <!-- TODO: Integrate this w/ Siddhant + Chinmayi's work! -->
+        </div>
+      </div>
+    {% endfor %}
+
+    <p class="caption">Other Events</p>
+
+    {% for event in other_events %}
+      <div class="event-card">
+        <a href="/member/events/{{ event.id }}" class="button event-card-button button-yellow">Register</a>
+        <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
+        <p class="header-bold">{{ event.title }}</p>
+        <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+      </div>
+    {% endfor %}
+
+    {% include 'footer.html' %}
+  </body>
+</html>

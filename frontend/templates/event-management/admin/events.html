@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <h1 class="header text-center">Hello Admin!</h1> <!-- TODO: Replace `Admin` w/ user's first name. -->
+
+    <div class="button-row">
+      <a href="/admin/events/create" class="button button-shadow home-button">Create an Event</a>
+      <a href="#" class="button button-shadow home-button">Manage Members</a> <!-- TODO: Update href. -->
+    </div>
+
+    <p class="caption">Your Upcoming Events</p>
+
+    {% for event in admin_events %}
+      <div class="event-card">
+        <!-- TODO: Update href. -->
+        <a href="#" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
+        <!-- TODO: Button to lock/unlock codes. -->
+        <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
+        <p class="header-bold">{{ event.title }}</p>
+        <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+        <div class="code-card">
+          <p class="label">Private Check-in Code</p>
+          <p class="code">{{ event.checkin_code }}</p>
+        </div>
+        <div class="code-card">
+          <p class="label">Private Check-out Code</p>
+          <p class="code">{{ event.checkout_code }}</p>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% include 'footer.html' %}
+  </body>
+</html>

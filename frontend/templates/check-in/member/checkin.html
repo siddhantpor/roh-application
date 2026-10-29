@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/check-in.css">
+  </head>
+  <body>
+    <div class="page">
+    {% include 'check-in/header.html' %}
+
+    {# ---------- Figma S10, state 1: not checked in ---------- #}
+    {% if state == 'not_checked_in' %}
+
+      <div class="header-row">
+        <a href="/member/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
+        <h1 class="header-bold page-title">Check In</h1>
+      </div>
+
+      <div class="event-card">
+        <p class="label text-gray">Checking in to</p>
+        <p class="header-bold">{{ event.event_title }}</p>
+        <p class="caption text-dark-gray">{{ event_when }} · {{ event.event_locat }}</p>
+      </div>
+
+      <!-- Use post instead of get for security. -->
+      <form action="/member/events/{{ event.event_id }}/handlecheckin" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="event-card">
+          <p class="label">Check-in code</p>
+          <input class="code-input {% if msg %}is-error{% endif %}"
+                 type="text" name="code" autofocus autocomplete="off"
+                 autocapitalize="characters" maxlength="12"
+                 required pattern=".*\S.*" title="Enter the code">
+          {% if msg %}
+            <p class="error-text">{{ msg }}</p>
+          {% endif %}
+        </div>
+        <button type="submit" class="button button-yellow wide-button">
+          {% if msg %}Try Again{% else %}Check In{% endif %}
+        </button>
+      </form>
+
+    {# ---------- Figma S10, state 2: checked in ---------- #}
+    {% elif state == 'checked_in' %}
+
+      <div class="header-row">
+        <a href="/member/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
+        <h1 class="header-bold page-title">{{ event.event_title }}</h1>
+      </div>
+
+      <div class="status-card">
+        <div>
+          <p class="header-bold">You're checked in</p>
+          <p class="caption text-dark-gray">at {{ checkin_display }}</p>
+        </div>
+        <p class="status-check">&#10003;</p>
+      </div>
+
+      <div class="event-card">
+        <p class="label text-gray">Time so far</p>
+        <p class="number-bold">{{ duration_display }}</p>
+        <p class="caption text-gray">Not final until an admin approves.</p>
+      </div>
+
+      <p class="caption text-center text-gray">Leaving? Ask an admin for the check-out code.</p>
+
+      <!-- Use post instead of get for security. -->
+      <form action="/member/events/{{ event.event_id }}/handlecheckout" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="event-card">
+          <p class="label">Check-out code</p>
+          <input class="code-input {% if msg %}is-error{% endif %}"
+                 type="text" name="code" autocomplete="off"
+                 autocapitalize="characters" maxlength="12"
+                 required pattern=".*\S.*" title="Enter the code">
+          {% if msg %}
+            <p class="error-text">{{ msg }}</p>
+          {% endif %}
+        </div>
+        <button type="submit" class="button button-shadow wide-button">Check Out</button>
+      </form>
+
+    {# ---------- Figma S10, state 3: checked out ---------- #}
+    {% else %}
+
+      <div class="header-row">
+        <a href="/member/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
+        <h1 class="header-bold page-title">{{ event.event_title }}</h1>
+      </div>
+
+      <div class="status-card">
+        <div>
+          <p class="header-bold">Thanks for volunteering!</p>
+          <p class="caption text-dark-gray">You're checked out.</p>
+        </div>
+        <p class="status-check">&#10003;</p>
+      </div>
+
+      <div class="event-card">
+        <p class="label text-gray">Total time</p>
+        <p class="number-bold">{{ duration_display }}</p>
+        <p class="caption text-gray">Checked in {{ checkin_display }} &rarr; out {{ checkout_display }}</p>
+        <p class="caption text-gray">Waiting for admin approval.</p>
+      </div>
+
+      <p class="caption text-center text-gray">These hours will show up in My Hours once an admin approves them.</p>
+
+      <a href="/member/hours" class="button button-yellow wide-button">Go to My Hours</a> <!-- TODO: My Hours page is screen 12 (Chinmaya). -->
+
+    {% endif %}
+
+    {% include 'check-in/footer.html' %}
+    </div>
+  </body>
+</html>

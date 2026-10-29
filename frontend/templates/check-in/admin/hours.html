@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/check-in.css">
+  </head>
+  <body>
+    <div class="page">
+    {% include 'check-in/header.html' %}
+
+    {# ---------- Figma S11a ---------- #}
+    <div class="header-row">
+      <a href="/admin/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
+      <h1 class="header-bold page-title">Review Hours</h1>
+    </div>
+    <p class="caption text-center text-gray">{{ event.event_title }} · {{ event_when }}</p>
+
+    <p class="text-center">
+      <span class="pill pill-green">Ready {{ ready|length }}</span>
+      <span class="pill pill-yellow">Still checked in {{ still_in|length }}</span>
+    </p>
+
+    {% if msg %}
+      <p class="msg text-center">{{ msg }}</p>
+    {% endif %}
+
+    {% if still_in|length > 0 %}
+      <div class="section-head">
+        <span>Still checked in</span>
+        <span>{{ still_in|length }}</span>
+      </div>
+      {% for r in still_in %}
+        <div class="row-card">
+          <div>
+            <p class="subtext-bold">{{ r.display_name }}</p>
+            <p class="caption text-gray">{{ r.checkin_display }} &rarr; (not checked out)</p>
+          </div>
+          <a href="/admin/events/{{ event.event_id }}/hours/{{ r.user_id }}" class="pill pill-yellow">&#9998; Edit Hours</a>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    <div class="section-head">
+      <span>Ready to approve</span>
+      <span>{{ ready|length }}</span>
+    </div>
+    {% if ready|length == 0 %}
+      <p class="caption text-gray">(None)</p>
+    {% endif %}
+    {% for r in ready %}
+      <div class="row-card">
+        <div>
+          <p class="subtext-bold">{{ r.display_name }}</p>
+          <p class="caption text-gray">{{ r.checkin_display }} &rarr; {{ r.checkout_display }} · {{ r.duration_display }}</p>
+          <a href="/admin/events/{{ event.event_id }}/hours/{{ r.user_id }}" class="caption">&#9998; Edit Hours</a>
+        </div>
+        {% if r.approved %}
+          <span class="pill pill-gray">&#10003; Approved</span>
+        {% else %}
+          <!-- Use post instead of get for security. -->
+          <form action="/admin/events/{{ event.event_id }}/handleapprove" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="user_id" value="{{ r.user_id }}">
+            <button type="submit" class="pill pill-green pill-button">&#10003; Approve</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+    {% if unapproved_count > 0 %}
+      <form action="/admin/events/{{ event.event_id }}/handleapproveall" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="button button-green wide-button">Approve all {{ unapproved_count }}</button>
+      </form>
+    {% endif %}
+
+    <p class="text-center"><a href="/admin/events/{{ event.event_id }}/codes">Event codes</a></p>
+
+    {% include 'check-in/footer.html' %}
+    </div>
+  </body>
+</html>

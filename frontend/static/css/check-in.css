@@ -1,0 +1,185 @@
+/* check-in.css
+   Styles only the check-in / hours pages need, on top of style.css.
+   Kept separate so style.css (shared) doesn't need editing. */
+
+.page {
+  max-width: 402px;          /* the Figma frames are 402px wide */
+  margin: 0 auto;
+  padding: 0 16px 24px;
+}
+
+.page-title {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+}
+
+/* The big status card at the top of S10 ("You're checked in") */
+.status-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--green);
+}
+
+.status-card p {
+  margin: 0;
+}
+
+.status-check {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* Code entry box (S10). Big, centred, letter-spaced like the Figma. */
+.code-input {
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  background: var(--white);
+  font-size: 18px;
+  letter-spacing: 0.3em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.code-input.is-error {
+  border-color: var(--red);
+  background: #fff0f0;
+}
+
+.error-text {
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--red);
+}
+
+/* Full-width action button at the bottom of a page */
+.wide-button {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  margin-top: 16px;
+  border-radius: 20px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Small coloured status pills ("Approve", "Ready 15") */
+.pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.pill-green  { background: var(--green); }
+.pill-yellow { background: var(--yellow); }
+.pill-red    { background: var(--light-red); }
+.pill-gray   { background: #e8e8e8; color: var(--dark-gray); }
+
+/* A row on the S11a list: name + times on the left, pill on the right */
+.row-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 10px 14px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  background: var(--white);
+}
+
+.row-card p {
+  margin: 0;
+}
+
+.row-card form {
+  margin: 0;
+}
+
+.pill-button {
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Section header with a count on the right ("Still checked in   1") */
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 16px 0 8px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--yellow);
+  font-weight: 700;
+}
+
+/* Admin edit form (S11b) and codes page (S6) */
+.field-card {
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  background: var(--white);
+}
+
+.field-card label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+}
+
+.field-card input,
+.field-card textarea {
+  box-sizing: border-box;
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.field-card textarea {
+  height: 70px;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.field-row {
+  display: flex;
+  gap: 10px;
+}
+
+.field-row > .field-card {
+  flex: 1;
+  min-width: 0;              /* lets datetime-local inputs shrink to fit */
+}
+
+.field-row input {
+  min-width: 0;
+}
+
+.code-display {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+}
+
+.msg {
+  margin: 8px 0;
+  font-size: 12px;
+  font-weight: 700;
+}

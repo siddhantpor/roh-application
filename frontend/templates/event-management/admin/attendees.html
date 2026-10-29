@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <div class="header-row">
+      <a href="/admin/events/{{ event_id }}" class="button button-shadow square-button">&lt;</a>
+      <h1 class="header-bold">Attendees</h1>
+    </div>
+
+    <div>
+      <p class="number-bold">{{ going }}</p>
+      <p>Going</p>
+    </div>
+    <div>
+      <p class="number-bold">{{ pending }}</p>
+      <p>Pending</p>
+    </div>
+    <div>
+      <p class="number-bold">{{ not_going }}</p>
+      <p>Not Going</p>
+    </div>
+
+    <!-- TODO: Search bar. -->
+
+    {% for member in members %}
+      <div>
+        <p class="subtext-bold text-dark-gray">{{ member.name }}</p>
+        <p class="caption">{{ member.status }}</p>
+      </div>
+    {% endfor %}
+
+    {% include 'footer.html' %}
+  </body>
+</html>

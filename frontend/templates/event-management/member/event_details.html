@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <a href="/member/events" class="button button-shadow square-button">&lt;</a>
+
+    <!-- TODO: Integrate w/ Cloudinary. -->
+    {% if event.flyer %}
+      <img src="{{ event.flyer }}">
+    {% endif %}
+
+    <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
+    <h1 class="header-bold">{{ event.title }}</h1>
+    <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+
+    <p><strong>About</strong></p>
+    <p>{{ event.description }}</p>
+
+    <div class="button-row">
+      <button class="button rsvp-button button-green">I'm in!</button> <!-- TODO: Integrate with Cindy's database work. -->
+      <button class="button rsvp-button button-red">Not Going</button>
+    </div>
+
+    {% include 'footer.html' %}
+  </body>
+</html>
