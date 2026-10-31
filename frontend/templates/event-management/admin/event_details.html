@@ -9,18 +9,18 @@
     <a href="/admin/events" class="button button-shadow square-button">&lt;</a>
 
     <!-- TODO: Sync w/ Cloudinary storage. -->
-    {% if event.flyer %}
-      <img src="{{ event.flyer }}">
+    {% if event.graphic_link %}
+      <img src="{{ event.graphic_link }}">
     {% endif %}
 
-    <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-    <h1 class="header-bold">{{ event.title }}</h1>
-    <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+    <p class="text-gray">{{ event.event_date }}, {{ event.start_time }}-{{ event.end_time }}</p>
+    <h1 class="header-bold">{{ event.event_title }}</h1>
+    <p class="subtext text-dark-gray">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
 
     <p><strong>About</strong></p>
-    <p>{{ event.description }}</p>
+    <p>{{ event.event_descrip }}</p>
 
-    <a href="/admin/events/{{ event.id }}/attendees">View Attendees</a>
+    <a href="/admin/events/{{ event.event_id }}/attendees">View Attendees</a>
 
     {% include 'footer.html' %}
   </body>

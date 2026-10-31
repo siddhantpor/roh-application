@@ -20,9 +20,9 @@
         <!-- TODO: Update href. -->
         <a href="#" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
         <!-- TODO: Button to lock/unlock codes. -->
-        <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-        <p class="header-bold">{{ event.title }}</p>
-        <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+        <p class="text-gray">{{ event.event_date }}, {{ event.start_time }}-{{ event.end_time }}</p>
+        <p class="header-bold">{{ event.event_title }}</p>
+        <p class="subtext text-dark-gray">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
         <div class="code-card">
           <p class="label">Private Check-in Code</p>
           <p class="code">{{ event.checkin_code }}</p>

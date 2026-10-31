@@ -9,16 +9,16 @@
     <a href="/member/events" class="button button-shadow square-button">&lt;</a>
 
     <!-- TODO: Integrate w/ Cloudinary. -->
-    {% if event.flyer %}
-      <img src="{{ event.flyer }}">
+    {% if event.graphic_link %}
+      <img src="{{ event.graphic_link }}">
     {% endif %}
 
-    <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-    <h1 class="header-bold">{{ event.title }}</h1>
-    <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+    <p class="text-gray">{{ event.event_date }}, {{ event.start_time }}-{{ event.end_time }}</p>
+    <h1 class="header-bold">{{ event.event_title }}</h1>
+    <p class="subtext text-dark-gray">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
 
     <p><strong>About</strong></p>
-    <p>{{ event.description }}</p>
+    <p>{{ event.event_descrip }}</p>
 
     <div class="button-row">
       <button class="button rsvp-button button-green">I'm in!</button> <!-- TODO: Integrate with Cindy's database work. -->
