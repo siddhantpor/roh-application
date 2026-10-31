@@ -65,10 +65,14 @@ def get_event(event_id):
     with _connection_pool.connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute('''
-                SELECT event_id, event_date, event_starttime, event_endtime,
-                       event_title, event_descrip, event_locat,
-                       graphic_link, checkin_code, checkout_code
-                FROM events WHERE event_id = %s
+                SELECT e.event_id, e.event_date, e.event_starttime,
+                       e.event_endtime, e.event_title, e.event_descrip,
+                       e.event_locat, e.graphic_link, e.checkin_code,
+                       e.checkout_code,
+                       (SELECT COUNT(*) FROM rsvps r
+                        WHERE r.event_id = e.event_id
+                          AND r.accepted = true)
+                FROM events e WHERE e.event_id = %s
                 ''', [event_id])
             table = cursor.fetchall()
             if len(table) != 1:
@@ -79,7 +83,8 @@ def get_event(event_id):
                 'end_time': _time_text(row[3]),
                 'event_title': row[4], 'event_descrip': row[5],
                 'event_locat': row[6], 'graphic_link': row[7],
-                'checkin_code': row[8], 'checkout_code': row[9]}
+                'checkin_code': row[8], 'checkout_code': row[9],
+                'attending': row[10]}
 
 #-----------------------------------------------------------------------
 
@@ -94,6 +99,56 @@ def set_event_codes(event_id, checkin_code, checkout_code):
                 ''', [checkin_code, checkout_code, event_id])
             connection.commit()
             return cursor.rowcount == 1
+
+#-----------------------------------------------------------------------
+
+def get_events():
+    events = []
+    with _connection_pool.connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT 
+                    e.event_id, e.event_date, e.event_starttime,
+                    e.event_endtime, e.event_title, e.event_descrip,
+                    e.event_locat, e.graphic_link, e.checkin_code,
+                    e.checkout_code,
+                    (SELECT COUNT(*) FROM rsvps r
+                        WHERE r.event_id = e.event_id
+                        AND r.accepted = true)
+                FROM events e
+                ORDER BY e.event_date, e.event_starttime
+                ''')
+            for row in cursor.fetchall():
+                events.append({
+                    'event_id': row[0],
+                    'event_date': _date_text(row[1]),
+                    'start_time': _time_text(row[2]),
+                    'end_time': _time_text(row[3]),
+                    'event_title': row[4], 
+                    'event_descrip': row[5],
+                    'event_locat': row[6], 
+                    'graphic_link': row[7],
+                    'checkin_code': row[8], 
+                    'checkout_code': row[9],
+                    'attending': row[10]})
+    return events
+
+#-----------------------------------------------------------------------
+
+def add_event(event_date, start_time, end_time, event_title,
+    event_descrip, event_locat):
+    with _connection_pool.connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                INSERT INTO events (event_date, event_starttime,
+                    event_endtime, event_title, event_descrip, event_locat)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING event_id
+                ''', [event_date, start_time, end_time, event_title,
+                      event_descrip, event_locat])
+            event_id = cursor.fetchone()[0]
+            connection.commit()
+            return event_id
 
 #-----------------------------------------------------------------------
 # RSVPs (read only here)
