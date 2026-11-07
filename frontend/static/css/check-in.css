@@ -4,7 +4,7 @@
 
 .page {
   max-width: 402px;          /* the Figma frames are 402px wide */
-  margin: 32px auto;
+  margin: 0 auto;
   padding: 0 16px 24px;
 }
 

@@ -1,33 +1,22 @@
-"""Server-rendered event pages, RSVP forms, and the volunteer hours summary."""
+"""Existing event pages, admin membership review, and poster forms."""
 import datetime
 
 import flask
 
-import auth
-import database
+import databasepostgresql as database
 import posters
 
-bp = flask.Blueprint('events', __name__)
-
-
-bp.before_request(auth.protect_request)
-
-
-@bp.app_template_filter('event_date')
-def format_event_date(value):
-    try:
-        day = datetime.date.fromisoformat(value)
-        return f"{day.strftime('%a, %b')} {day.day}, {day.year}"
-    except (TypeError, ValueError):
-        return value or 'Date to be announced'
-
-
-@bp.app_template_filter('event_time')
-def format_event_time(value):
-    try:
-        return datetime.time.fromisoformat(value).strftime('%I:%M %p').lstrip('0')
-    except (TypeError, ValueError):
-        return value or ''
+def init_app(app):
+    app.add_url_rule('/admin/events', view_func=admin_events)
+    app.add_url_rule('/admin/events/create', view_func=create_event, methods=['GET', 'POST'])
+    app.add_url_rule('/admin/events/<int:event_id>/edit', view_func=edit_event, methods=['GET', 'POST'])
+    app.add_url_rule('/admin/events/<int:event_id>', view_func=admin_event_detail)
+    app.add_url_rule('/admin/events/<int:event_id>/attendees', view_func=admin_attendees)
+    app.add_url_rule('/admin/members', view_func=members)
+    app.add_url_rule('/admin/members/<int:user_id>/membership',
+                     view_func=update_membership, methods=['POST'])
+    app.add_url_rule('/member/events', view_func=member_events)
+    app.add_url_rule('/member/events/<int:event_id>', view_func=member_event_detail)
 
 
 def _event_or_404(event_id):
@@ -37,22 +26,15 @@ def _event_or_404(event_id):
     return event
 
 
-@bp.get('/admin/events')
 def admin_events():
-    members = database.get_members()
-    pending_count = sum(bool(member['auth0_sub'] and member['pending'] and
-                             not member['approved'] and not member['is_admin'])
-                        for member in members)
     return flask.render_template('event-management/admin/events.html',
-                                 admin_events=database.get_events(), pending_count=pending_count)
+                                 admin_events=database.get_events())
 
 
-@bp.route('/admin/events/create', methods=['GET', 'POST'])
 def create_event():
     return _event_form()
 
 
-@bp.route('/admin/events/<int:event_id>/edit', methods=['GET', 'POST'])
 def edit_event(event_id):
     return _event_form(_event_or_404(event_id))
 
@@ -97,7 +79,7 @@ def _event_form(event=None):
                 if not posters.delete(event['graphic_public_id']):
                     flask.flash('Event saved. The old poster could not be removed from storage; an administrator must retry cleanup.')
             flask.flash('Event saved.')
-            return flask.redirect(flask.url_for('events.admin_event_detail', event_id=event_id))
+            return flask.redirect(flask.url_for('admin_event_detail', event_id=event_id))
         except ValueError as error:
             flask.flash(str(error))
             status = 400
@@ -122,27 +104,23 @@ def _validate_event(values):
         raise ValueError('Enter a valid date and times, with the end time after the start time.') from None
 
 
-@bp.get('/admin/events/<int:event_id>')
 def admin_event_detail(event_id):
     return flask.render_template('event-management/admin/event_details.html', event=_event_or_404(event_id))
 
 
-@bp.get('/admin/events/<int:event_id>/attendees')
 def admin_attendees(event_id):
     _event_or_404(event_id)
-    members = database.get_attendees(event_id)
+    members = []  # Attendee directory remains part of the event-management work.
     return flask.render_template('event-management/admin/attendees.html', event_id=event_id, members=members,
         going=sum(m['status'] == 'Going' for m in members),
         pending=sum(m['status'] == 'Pending' for m in members),
         not_going=sum(m['status'] == 'Not Going' for m in members))
 
 
-@bp.get('/admin/members')
 def members():
     return flask.render_template('event-management/admin/members.html', members=database.get_members())
 
 
-@bp.post('/admin/members/<int:user_id>/membership')
 def update_membership(user_id):
     action = flask.request.form.get('action')
     if action not in ('approve', 'decline', 'revoke'):
@@ -151,37 +129,14 @@ def update_membership(user_id):
         flask.abort(404, 'No eligible volunteer account was found.')
     flask.flash('Membership approved.' if action == 'approve' else
                 ('Membership declined.' if action == 'decline' else 'Membership access revoked.'))
-    return flask.redirect(flask.url_for('events.members'))
+    return flask.redirect(flask.url_for('members'))
 
 
-@bp.get('/member/events')
 def member_events():
-    user_id = auth.get_user()['user_id']
-    registered, other = [], []
-    for event in database.get_events():
-        (registered if database.get_rsvp(user_id, event['event_id']) else other).append(event)
-    return flask.render_template('event-management/member/events.html', registered_events=registered, other_events=other)
+    return flask.render_template('event-management/member/events.html',
+                                 upcoming_events=[], other_events=database.get_events())
 
 
-@bp.get('/member/events/<int:event_id>')
 def member_event_detail(event_id):
-    return flask.render_template('event-management/member/event_details.html', event=_event_or_404(event_id),
-        rsvp=database.get_rsvp(auth.get_user()['user_id'], event_id))
-
-
-@bp.post('/member/events/<int:event_id>/rsvp')
-def rsvp(event_id):
-    _event_or_404(event_id)
-    response = flask.request.form.get('response')
-    if response not in ('going', 'not_going'):
-        flask.abort(400, 'Choose Going or Not Going.')
-    database.set_rsvp(auth.get_user()['user_id'], event_id, response == 'going')
-    flask.flash('Your RSVP has been saved.')
-    return flask.redirect(flask.url_for('events.member_event_detail', event_id=event_id))
-
-
-@bp.get('/member/hours')
-def member_hours():
-    records = database.get_hours(auth.get_user()['user_id'], '0001-01-01', '9999-12-31')
-    return flask.render_template('event-management/member/hours.html', records=records,
-                                 total=sum(record['hours'] or 0 for record in records))
+    return flask.render_template('event-management/member/event_details.html',
+                                 event=_event_or_404(event_id))

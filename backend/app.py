@@ -1,6 +1,5 @@
 """Application setup. Run with `python backend/app.py` or Flask's CLI."""
 import os
-from contextlib import closing
 from datetime import timedelta
 from pathlib import Path
 
@@ -8,11 +7,10 @@ import click
 import dotenv
 import flask
 from flask_wtf.csrf import CSRFProtect
-from werkzeug.exceptions import HTTPException
 
 import auth
 import checkin
-import database
+import databasepostgresql as database
 import events
 
 
@@ -25,7 +23,6 @@ def create_app(test_config=None):
     app.config.from_mapping(
         SECRET_KEY=os.getenv('APP_SECRET_KEY'),
         DATABASE_URL=os.getenv('DATABASE_URL', ''),
-        SQLITE_PATH=str(backend_dir / 'roh.sqlite'),
         AUTH0_DOMAIN=os.getenv('AUTH0_DOMAIN', ''),
         AUTH0_CLIENT_ID=os.getenv('AUTH0_CLIENT_ID', ''),
         AUTH0_CLIENT_SECRET=os.getenv('AUTH0_CLIENT_SECRET', ''),
@@ -46,29 +43,26 @@ def create_app(test_config=None):
     if not app.secret_key:
         raise RuntimeError('Set APP_SECRET_KEY in .env (see backend/.env.example).')
 
+    if not app.config['DATABASE_URL']:
+        raise RuntimeError('Set DATABASE_URL to your PostgreSQL connection URL.')
+
     database.init_app(app)
-    auth.init_app(app)
     CSRFProtect(app)
-    app.register_blueprint(events.bp)
-    app.register_blueprint(checkin.bp)
+    auth.init_app(app)
+    events.init_app(app)
+    checkin.init_app(app)
+    app.before_request(auth.protect_request)
 
     @app.get('/')
     @app.get('/index')
     def index():
-        if auth.get_user() is None:
+        user = auth.get_user()
+        if user is None:
             return flask.render_template('welcome.html')
-        if not auth.is_admin() and not auth.get_user()['approved']:
-            return flask.redirect(flask.url_for('auth.membership'))
-        endpoint = 'events.admin_events' if auth.is_admin() else 'events.member_events'
+        if not user['is_admin'] and not user['approved']:
+            return flask.redirect(flask.url_for('membership'))
+        endpoint = 'admin_events' if user['is_admin'] else 'member_events'
         return flask.redirect(flask.url_for(endpoint))
-
-    @app.errorhandler(HTTPException)
-    def http_error(error):
-        return flask.render_template('error.html', error=error), error.code
-
-    @app.errorhandler(500)
-    def server_error(error):
-        return flask.render_template('error.html', error=error), 500
 
     @app.after_request
     def response_headers(response):
@@ -78,18 +72,6 @@ def create_app(test_config=None):
         if flask.request.endpoint != 'static':
             response.headers['Cache-Control'] = 'no-store'
         return response
-
-    @app.cli.command('init-db')
-    def init_db():
-        """Create the local demo database; refuse to overwrite existing tables."""
-        if app.config['DATABASE_URL']:
-            raise click.ClickException('init-db is SQLite only. See README for PostgreSQL migrations.')
-        import sqlite3
-        with closing(sqlite3.connect(app.config['SQLITE_PATH'])) as connection:
-            if connection.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchone():
-                raise click.ClickException('Database already has tables; use migrate-db to preserve data.')
-            connection.executescript((backend_dir / 'roh.sql').read_text())
-        click.echo('Created local demo database.')
 
     @app.cli.command('migrate-db')
     def migrate_db():

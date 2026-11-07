@@ -7,22 +7,16 @@
 </head>
 <body>
   {% include 'header.html' %}
-  <main class="content status-layout">
-    <section class="auth-card" aria-labelledby="membership-title">
-      <p class="eyebrow">Your membership</p>
-      {% if current_user.pending %}
-        <span class="status-badge status-pending">Awaiting review</span>
-        <h1 id="membership-title">Thanks for joining, {{ current_user.display_name }}.</h1>
-        <p>Your email is verified. A Rays of Hope admin needs to approve your membership before you can view events, RSVP, or record volunteer hours.</p>
-        <p>There is nothing else you need to submit here. Check back after an admin has reviewed your account.</p>
-      {% else %}
-        <span class="status-badge status-declined">Access not approved</span>
-        <h1 id="membership-title">Your membership is not active.</h1>
-        <p>Your account does not currently have access to the organization. Contact a Rays of Hope admin if you believe this is a mistake.</p>
-      {% endif %}
-      <p class="auth-note">Account: {{ current_user.email }}</p>
-      <a class="action-button action-primary" href="{{ url_for('auth.membership') }}">Check membership status</a>
-    </section>
+  <main class="content">
+    {% if current_user.pending %}
+      <h1>Waiting for membership approval</h1>
+      <p>Your email is verified. An admin must approve your account before you can access events or record volunteer hours.</p>
+    {% else %}
+      <h1>Your membership is not active</h1>
+      <p>Contact a Rays of Hope admin if you believe this is a mistake.</p>
+    {% endif %}
+    <p>Account: {{ current_user.email }}</p>
+    <a href="{{ url_for('membership') }}">Check membership status</a>
   </main>
   {% include 'footer.html' %}
 </body>

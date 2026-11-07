@@ -8,18 +8,12 @@
 <body>
   {% include 'header.html' %}
   <main class="content auth-layout">
-    <section class="welcome-copy">
-      <p class="eyebrow">Rays of Hope</p>
-      <h1>A little of your time.<br>A lasting difference.</h1>
-      <p>Find opportunities to give back, connect with your community, and keep track of the hours you contribute.</p>
-      <p class="welcome-note">One place for your events, check-ins, and volunteer hours.</p>
-    </section>
     <section class="auth-card" aria-labelledby="welcome-title">
       <img class="welcome-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Rays of Hope logo" width="76" height="76">
-      <h2 id="welcome-title">Welcome to the community</h2>
+      <h1 id="welcome-title">Welcome to the community</h1>
       <p>Already a member? Log in to your volunteer portal.</p>
-      <a class="action-button action-primary" href="{{ url_for('auth.login') }}">Log in</a>
-      <a class="action-button action-secondary" href="{{ url_for('auth.signup') }}">Create an account</a>
+      <a class="action-button action-primary" href="{{ url_for('login') }}">Log in</a>
+      <a class="action-button action-secondary" href="{{ url_for('signup') }}">Create an account</a>
       <p class="auth-note">New here? Create your account and verify your email. An admin will review your membership before you can access events.</p>
     </section>
   </main>

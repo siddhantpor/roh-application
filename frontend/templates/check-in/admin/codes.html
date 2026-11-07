@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="/static/css/check-in.css">
   </head>
   <body>
+    <div class="page">
     {% include 'check-in/header.html' %}
-    <main class="page">
 
     <div class="header-row">
       <a href="/admin/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
@@ -46,7 +46,7 @@
 
     <p class="text-center"><a href="/admin/events/{{ event.event_id }}/hours">Review hours for this event</a></p>
 
-    </main>
     {% include 'check-in/footer.html' %}
+    </div>
   </body>
 </html>

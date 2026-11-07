@@ -1,24 +1,15 @@
-#!/usr/bin/env python
-
-#-----------------------------------------------------------------------
-# databasepostgresql.py
-# PostgreSQL (Neon) version of the database functions, written against
-# the team schema (accounts / events / rsvps / attendance / volunteerhours)
-# plus migrate_checkin.sql. Same functions and return values as
-# databasesqlite.py; routes don't know which one they got.
-#
-# Schema differences from the SQLite dev version, handled here:
-#   - one `attendance` table with is_checkin true/false instead of
-#     checkins + checkouts
-#   - real date/time/timestamp/boolean columns instead of text/0-1;
-#     converted to the same strings/bools the SQLite version returns
-#   - event_starttime / event_endtime instead of start_time / end_time
-#-----------------------------------------------------------------------
-
+"""PostgreSQL queries for accounts, events, RSVPs, and attendance."""
+import atexit
 import datetime
 from flask import current_app
 import psycopg
 import psycopg_pool
+
+def init_app(app):
+    pool = psycopg_pool.ConnectionPool(app.config['DATABASE_URL'], open=False)
+    app.extensions['database_pool'] = pool
+    atexit.register(pool.close)
+
 
 def _get_pool():
     pool = current_app.extensions['database_pool']
@@ -138,7 +129,7 @@ def get_events():
 #-----------------------------------------------------------------------
 
 #-----------------------------------------------------------------------
-# RSVPs (read only here)
+# RSVPs
 #-----------------------------------------------------------------------
 
 def get_rsvp(user_id, event_id):
@@ -291,8 +282,8 @@ def get_hours(user_id, start_date, end_date):
     return hours
 
 #-----------------------------------------------------------------------
-# Conversions: Postgres gives date/time/datetime objects; the SQLite
-# version (and the routes) use ISO strings.
+# Conversions: PostgreSQL gives date/time/datetime objects.
+# Routes and templates use ISO strings.
 #-----------------------------------------------------------------------
 
 def _date_text(d):
@@ -316,26 +307,22 @@ def _hours_between(checkin_time, checkout_time):
 
 #-----------------------------------------------------------------------
 
-def _transaction():
-    return _get_pool().connection()
-
-
-# Integrated account/event operations. Both adapters expose the same interface.
+# Account linking, membership, and event poster operations.
 def get_account(user_id):
-    with _transaction() as connection:
+    with _get_pool().connection() as connection:
         row = connection.execute('''
             SELECT user_id, username, email, display_name, is_admin, auth0_sub, approved, pending
             FROM accounts WHERE user_id = %s
         ''', [user_id]).fetchone()
     if row is None:
         return None
-    return dict(zip(('user_id', 'username', 'email', 'display_name', 'is_admin',
-                     'auth0_sub', 'approved', 'pending'), row),
-                is_admin=bool(row[4]), approved=bool(row[6]), pending=bool(row[7]))
+    return {'user_id': row[0], 'username': row[1], 'email': row[2],
+            'display_name': row[3], 'is_admin': bool(row[4]), 'auth0_sub': row[5],
+            'approved': bool(row[6]), 'pending': bool(row[7])}
 
 
 def link_auth0_user(subject, email, name, bootstrap_admin=False):
-    with _transaction() as connection:
+    with _get_pool().connection() as connection:
         row = connection.execute('SELECT user_id FROM accounts WHERE auth0_sub = %s', [subject]).fetchone()
         if row:
             user_id = row[0]
@@ -361,7 +348,7 @@ def link_auth0_user(subject, email, name, bootstrap_admin=False):
 
 
 def set_admin(email, enabled):
-    with _transaction() as connection:
+    with _get_pool().connection() as connection:
         matches = connection.execute(
             'SELECT user_id FROM accounts WHERE lower(email) = %s AND auth0_sub IS NOT NULL',
             [email]).fetchall()
@@ -373,7 +360,7 @@ def set_admin(email, enabled):
 
 def update_event(event_id, event_date, start_time, end_time, event_title, event_descrip,
                  event_locat, graphic_link, graphic_public_id):
-    with _transaction() as connection:
+    with _get_pool().connection() as connection:
         connection.execute('''
             UPDATE events SET event_date = %s, event_starttime = %s, event_endtime = %s,
                 event_title = %s, event_descrip = %s, event_locat = %s,
@@ -384,7 +371,7 @@ def update_event(event_id, event_date, start_time, end_time, event_title, event_
 
 def add_event(event_date, start_time, end_time, event_title, event_descrip, event_locat,
                  graphic_link=None, graphic_public_id=None):
-    with _transaction() as connection:
+    with _get_pool().connection() as connection:
         return connection.execute('''
             INSERT INTO events (event_date, event_starttime, event_endtime, event_title,
                                 event_descrip, event_locat, graphic_link, graphic_public_id)
@@ -393,44 +380,26 @@ def add_event(event_date, start_time, end_time, event_title, event_descrip, even
               graphic_link, graphic_public_id]).fetchone()[0]
 
 
-def set_rsvp(user_id, event_id, accepted):
-    # The team's PostgreSQL schema stores RSVP history; latest response wins.
-    with _transaction() as connection:
-        connection.execute('''INSERT INTO rsvps (user_id, event_id, accepted, time)
-            VALUES (%s, %s, %s, %s)''',
-            [user_id, event_id, accepted, datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)])
-
-
-def get_attendees(event_id):
-    with _transaction() as connection:
-        rows = connection.execute('''SELECT a.display_name, r.accepted
-            FROM accounts a LEFT JOIN
-                (SELECT DISTINCT ON (user_id) user_id, accepted FROM rsvps
-                 WHERE event_id = %s ORDER BY user_id, time DESC) r ON a.user_id = r.user_id
-            WHERE a.is_admin = false ORDER BY a.display_name''', [event_id]).fetchall()
-    return [{'name': row[0], 'status': 'Pending' if row[1] is None else
-             ('Going' if row[1] else 'Not Going')} for row in rows]
-
-
 def migrate():
     from pathlib import Path
-    with _transaction() as connection:
+    with _get_pool().connection() as connection:
         connection.execute(Path(__file__).with_name('migrate_auth_posters.sql').read_text())
 
 
 def get_members():
-    with _transaction() as connection:
+    with _get_pool().connection() as connection:
         rows = connection.execute('''
             SELECT user_id, display_name, email, is_admin, approved, pending, auth0_sub
             FROM accounts ORDER BY pending DESC, display_name
         ''').fetchall()
-    return [dict(zip(('user_id', 'name', 'email', 'is_admin', 'approved', 'pending', 'auth0_sub'), row))
-            for row in rows]
+    return [{'user_id': row[0], 'name': row[1], 'email': row[2],
+             'is_admin': bool(row[3]), 'approved': bool(row[4]),
+             'pending': bool(row[5]), 'auth0_sub': row[6]} for row in rows]
 
 
 def set_membership(user_id, approved):
     # Keep the account and its volunteer history. Admins cannot be disabled here.
-    with _transaction() as connection:
+    with _get_pool().connection() as connection:
         cursor = connection.execute('''
             UPDATE accounts SET approved = %s, pending = %s
             WHERE user_id = %s AND COALESCE(is_admin, FALSE) = FALSE

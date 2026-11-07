@@ -8,10 +8,7 @@ from authlib.integrations.base_client.errors import OAuthError
 from requests.exceptions import RequestException
 from joserfc.errors import JoseError
 
-import database
-
-bp = flask.Blueprint('auth', __name__)
-
+import databasepostgresql as database
 
 def init_app(app):
     oauth = OAuth(app)
@@ -22,13 +19,17 @@ def init_app(app):
         server_metadata_url=f"https://{app.config['AUTH0_DOMAIN']}/.well-known/openid-configuration",
     )
     app.extensions['auth0_client'] = oauth.auth0
-    app.register_blueprint(bp)
+    app.add_url_rule('/login', view_func=login)
+    app.add_url_rule('/signup', view_func=signup)
+    app.add_url_rule('/callback', view_func=callback)
+    app.add_url_rule('/logout', view_func=logout, methods=['POST'])
+    app.add_url_rule('/membership', view_func=membership)
+    app.add_url_rule('/loggedout', view_func=loggedout)
 
     @app.context_processor
     def auth_context():
         user = get_user()
-        return {'current_user': user, 'current_user_is_admin': bool(user and user['is_admin']),
-                'current_user_has_access': bool(user and (user['is_admin'] or user['approved']))}
+        return {'current_user': user}
 
 
 def _client():
@@ -58,28 +59,28 @@ def _start_login(**params):
     client = _client()
     flask.session['next'] = _safe_next(flask.request.args.get('next'))
     try:
-        return client.authorize_redirect(flask.url_for('auth.callback', _external=True), **params)
+        return client.authorize_redirect(flask.url_for('callback', _external=True), **params)
     except (OAuthError, RequestException, JoseError):
         flask.abort(502, 'The login service is unavailable. Please try again.')
 
 
-@bp.get('/login')
 def login():
     return _start_login()
 
 
-@bp.get('/signup')
 def signup():
     return _start_login(screen_hint='signup')
 
 
-@bp.get('/callback')
 def callback():
     try:
         # Authlib validates OAuth state, OIDC nonce, issuer, signature and expiry.
         token = _client().authorize_access_token()
         userinfo = token.get('userinfo', {})
-        if not userinfo.get('sub') or not userinfo.get('email') or userinfo.get('email_verified') is not True:
+        if not userinfo.get('sub') or not userinfo.get('email'):
+            flask.session.clear()
+            flask.abort(403, 'Auth0 did not return the required account details. Please contact an administrator.')
+        if userinfo.get('email_verified') is not True:
             flask.session.clear()
             flask.abort(403, 'Verify your email address with Auth0 before logging in.')
         user = database.link_auth0_user(
@@ -87,7 +88,8 @@ def callback():
             userinfo.get('name') or userinfo['email'],
             userinfo['email'].strip().lower() in flask.current_app.config['ADMIN_EMAILS'],
         )
-    except (OAuthError, RequestException, JoseError):
+    except (OAuthError, RequestException, JoseError) as error:
+        flask.current_app.logger.warning('Auth0 callback failed (%s).', type(error).__name__)
         flask.session.clear()
         flask.abort(400, 'Login failed or expired. Please try logging in again.')
     except ValueError:
@@ -100,21 +102,19 @@ def callback():
     lifetime = flask.current_app.permanent_session_lifetime.total_seconds()
     flask.session.update(user_id=user['user_id'], auth0_sub=userinfo['sub'], expires_at=time.time() + lifetime)
     if not user['is_admin'] and not user['approved']:
-        return flask.redirect(flask.url_for('auth.membership'))
+        return flask.redirect(flask.url_for('membership'))
     return flask.redirect(next_url)
 
 
-@bp.post('/logout')
 def logout():
     _client()
     flask.session.clear()
     return flask.redirect(f"https://{flask.current_app.config['AUTH0_DOMAIN']}/v2/logout?" + urlencode({
-        'returnTo': flask.url_for('auth.loggedout', _external=True),
+        'returnTo': flask.url_for('loggedout', _external=True),
         'client_id': flask.current_app.config['AUTH0_CLIENT_ID'],
     }))
 
 
-@bp.get('/membership')
 def membership():
     authenticate()
     user = get_user()
@@ -123,7 +123,6 @@ def membership():
     return flask.render_template('membership.html')
 
 
-@bp.get('/loggedout')
 def loggedout():
     return flask.render_template('loggedout.html')
 
@@ -158,7 +157,7 @@ def is_admin():
 def authenticate():
     if get_user() is None:
         next_url = flask.request.full_path.rstrip('?') if flask.request.method == 'GET' else '/'
-        flask.abort(flask.redirect(flask.url_for('auth.login', next=next_url)))
+        flask.abort(flask.redirect(flask.url_for('login', next=next_url)))
 
 
 def authenticate_admin():
@@ -168,12 +167,14 @@ def authenticate_admin():
 
 
 def protect_request():
-    """Shared policy for the event and check-in route groups."""
+    """Check access before any registered admin or member route runs."""
+    if flask.request.endpoint is None or not flask.request.path.startswith(('/admin/', '/member/')):
+        return
     if flask.request.path.startswith('/admin/'):
         authenticate_admin()
     else:
         authenticate()
         if not get_user()['approved'] and not is_admin():
             if flask.request.method in ('GET', 'HEAD'):
-                flask.abort(flask.redirect(flask.url_for('auth.membership')))
+                flask.abort(flask.redirect(flask.url_for('membership')))
             flask.abort(403, 'Organization membership approval is required.')

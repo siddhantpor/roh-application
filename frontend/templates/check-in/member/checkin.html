@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="/static/css/check-in.css">
   </head>
   <body>
+    <div class="page">
     {% include 'check-in/header.html' %}
-    <main class="page">
 
     {# ---------- Figma S10, state 1: not checked in ---------- #}
     {% if state == 'not_checked_in' %}
@@ -111,7 +111,7 @@
 
     {% endif %}
 
-    </main>
     {% include 'check-in/footer.html' %}
+    </div>
   </body>
 </html>

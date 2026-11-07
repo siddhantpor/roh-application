@@ -3,7 +3,7 @@
 #-----------------------------------------------------------------------
 # checkin.py
 # Routes for check-in / check-out / review hours. Registered with
-# a Blueprint on the shared Flask app. GET handlers render a
+# init_app(app) on the shared Flask app. GET handlers render a
 # page; POST handlers validate, write, and redirect back.
 #
 # Screens: S10 member check-in (3 states), S6 admin codes,
@@ -21,7 +21,7 @@ import zoneinfo
 import secrets
 import flask
 import auth
-import database
+import databasepostgresql as database
 
 #-----------------------------------------------------------------------
 # Design choices (see README.md, "Design choices")
@@ -38,16 +38,28 @@ CODE_LENGTH = 6
 # Route registration
 #-----------------------------------------------------------------------
 
-bp = flask.Blueprint('checkin', __name__)
-
-
-bp.before_request(auth.protect_request)
+def init_app(app):
+    app.add_url_rule('/member/events/<int:event_id>/checkin', view_func=member_checkin)
+    app.add_url_rule('/member/events/<int:event_id>/handlecheckin',
+                     view_func=handle_member_checkin, methods=['POST'])
+    app.add_url_rule('/member/events/<int:event_id>/handlecheckout',
+                     view_func=handle_member_checkout, methods=['POST'])
+    app.add_url_rule('/admin/events/<int:event_id>/codes', view_func=admin_codes)
+    app.add_url_rule('/admin/events/<int:event_id>/handlecodes',
+                     view_func=handle_admin_codes, methods=['POST'])
+    app.add_url_rule('/admin/events/<int:event_id>/hours', view_func=admin_hours)
+    app.add_url_rule('/admin/events/<int:event_id>/handleapprove',
+                     view_func=handle_admin_approve, methods=['POST'])
+    app.add_url_rule('/admin/events/<int:event_id>/handleapproveall',
+                     view_func=handle_admin_approve_all, methods=['POST'])
+    app.add_url_rule('/admin/events/<int:event_id>/hours/<int:user_id>', view_func=admin_edit_hours)
+    app.add_url_rule('/admin/events/<int:event_id>/hours/<int:user_id>/handleedit',
+                     view_func=handle_admin_edit_hours, methods=['POST'])
 
 #-----------------------------------------------------------------------
 # Member: one page, three states (S10)
 #-----------------------------------------------------------------------
 
-@bp.get('/member/events/<int:event_id>/checkin')
 def member_checkin(event_id):
 
     username = auth.get_username()
@@ -95,7 +107,6 @@ def member_checkin(event_id):
 
 #-----------------------------------------------------------------------
 
-@bp.post('/member/events/<int:event_id>/handlecheckin')
 def handle_member_checkin(event_id):
 
     user_id = auth.get_user()['user_id']
@@ -125,7 +136,6 @@ def handle_member_checkin(event_id):
 
 #-----------------------------------------------------------------------
 
-@bp.post('/member/events/<int:event_id>/handlecheckout')
 def handle_member_checkout(event_id):
 
     user_id = auth.get_user()['user_id']
@@ -158,7 +168,6 @@ def handle_member_checkout(event_id):
 # Admin: codes (S6)
 #-----------------------------------------------------------------------
 
-@bp.get('/admin/events/<int:event_id>/codes')
 def admin_codes(event_id):
 
     username = auth.get_username()
@@ -175,7 +184,6 @@ def admin_codes(event_id):
 
 #-----------------------------------------------------------------------
 
-@bp.post('/admin/events/<int:event_id>/handlecodes')
 def handle_admin_codes(event_id):
 
 
@@ -190,13 +198,12 @@ def handle_admin_codes(event_id):
         checkout_code = _generate_code()
     database.set_event_codes(event_id, checkin_code, checkout_code)
 
-    return flask.redirect(flask.url_for('checkin.admin_codes', event_id=event_id))
+    return flask.redirect(flask.url_for('admin_codes', event_id=event_id))
 
 #-----------------------------------------------------------------------
 # Admin: review hours list (S11a)
 #-----------------------------------------------------------------------
 
-@bp.get('/admin/events/<int:event_id>/hours')
 def admin_hours(event_id):
 
     username = auth.get_username()
@@ -230,7 +237,6 @@ def admin_hours(event_id):
 
 #-----------------------------------------------------------------------
 
-@bp.post('/admin/events/<int:event_id>/handleapprove')
 def handle_admin_approve(event_id):
 
     # Approve one row as-is.
@@ -256,11 +262,10 @@ def handle_admin_approve(event_id):
         msg = f'Approved {record["display_name"]}'
 
     return flask.redirect(
-        flask.url_for('checkin.admin_hours', event_id=event_id, msg=msg))
+        flask.url_for('admin_hours', event_id=event_id, msg=msg))
 
 #-----------------------------------------------------------------------
 
-@bp.post('/admin/events/<int:event_id>/handleapproveall')
 def handle_admin_approve_all(event_id):
 
     # Approve every ready, not-yet-approved row.
@@ -282,13 +287,12 @@ def handle_admin_approve_all(event_id):
 
     msg = f'Approved {count} entries'
     return flask.redirect(
-        flask.url_for('checkin.admin_hours', event_id=event_id, msg=msg))
+        flask.url_for('admin_hours', event_id=event_id, msg=msg))
 
 #-----------------------------------------------------------------------
 # Admin: edit one member's hours (S11b)
 #-----------------------------------------------------------------------
 
-@bp.get('/admin/events/<int:event_id>/hours/<int:user_id>')
 def admin_edit_hours(event_id, user_id):
 
     username = auth.get_username()
@@ -314,7 +318,6 @@ def admin_edit_hours(event_id, user_id):
 
 #-----------------------------------------------------------------------
 
-@bp.post('/admin/events/<int:event_id>/hours/<int:user_id>/handleedit')
 def handle_admin_edit_hours(event_id, user_id):
 
     # Both S11b buttons post here: action=save or action=reject.
@@ -335,7 +338,7 @@ def handle_admin_edit_hours(event_id, user_id):
         database.update_attendance(user_id, event_id, None, None, False)
         msg = f'Rejected {record["display_name"]}\'s entry'
         return flask.redirect(
-            flask.url_for('checkin.admin_hours', event_id=event_id, msg=msg))
+            flask.url_for('admin_hours', event_id=event_id, msg=msg))
 
     checkin_local = flask.request.form.get('checkin_time')
     checkout_local = flask.request.form.get('checkout_time')
@@ -357,9 +360,9 @@ def handle_admin_edit_hours(event_id, user_id):
             checkin_time, checkout_time, True)
         msg = f'Saved and approved {record["display_name"]}'
         return flask.redirect(
-            flask.url_for('checkin.admin_hours', event_id=event_id, msg=msg))
+            flask.url_for('admin_hours', event_id=event_id, msg=msg))
 
-    return flask.redirect(flask.url_for('checkin.admin_edit_hours',
+    return flask.redirect(flask.url_for('admin_edit_hours',
         event_id=event_id, user_id=user_id, msg=msg))
 
 #-----------------------------------------------------------------------
@@ -369,8 +372,8 @@ def handle_admin_edit_hours(event_id, user_id):
 def _member_url(event_id, msg):
 
     if msg == '':
-        return flask.url_for('checkin.member_checkin', event_id=event_id)
-    return flask.url_for('checkin.member_checkin', event_id=event_id, msg=msg)
+        return flask.url_for('member_checkin', event_id=event_id)
+    return flask.url_for('member_checkin', event_id=event_id, msg=msg)
 
 #-----------------------------------------------------------------------
 
