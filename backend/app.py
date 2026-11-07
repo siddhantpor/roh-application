@@ -28,12 +28,16 @@ def create_app(test_config=None):
         AUTH0_CLIENT_ID=os.getenv('AUTH0_CLIENT_ID', ''),
         AUTH0_CLIENT_SECRET=os.getenv('AUTH0_CLIENT_SECRET', ''),
         ADMIN_EMAILS={e.strip().lower() for e in os.getenv('ADMIN_EMAILS', '').split(',') if e.strip()},
+        CLOUDINARY_CLOUD_NAME=os.getenv('CLOUDINARY_CLOUD_NAME', ''),
+        CLOUDINARY_API_KEY=os.getenv('CLOUDINARY_API_KEY', ''),
+        CLOUDINARY_API_SECRET=os.getenv('CLOUDINARY_API_SECRET', ''),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE='Lax',
         SESSION_COOKIE_SECURE=os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true',
         PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
         SESSION_REFRESH_EACH_REQUEST=False,
         MAX_CONTENT_LENGTH=6 * 1024 * 1024,
+        POSTER_MAX_BYTES=5 * 1024 * 1024,
     )
     if test_config:
         app.config.update(test_config)

@@ -1,4 +1,5 @@
 """Run unittest; TEST_DATABASE_URL enables real PostgreSQL checks in a temporary schema."""
+import io
 import os
 import re
 import time
@@ -10,6 +11,8 @@ from unittest.mock import DEFAULT, Mock, patch
 import psycopg
 from psycopg import sql
 from authlib.integrations.base_client.errors import OAuthError
+from cloudinary.exceptions import Error as CloudinaryError
+from PIL import Image
 from flask import redirect
 
 from app import create_app
@@ -73,7 +76,15 @@ class AppTests(unittest.TestCase):
         self.addCleanup(response.request.environ['wsgi.input'].close)
         return response
 
+    def form(self, **values):
+        return dict(date='2026-11-07', start_time='09:00', end_time='12:00',
+                    title='Park Cleanup', location='Park', description='Help clean up.', **values)
 
+    def image(self, name='poster.png'):
+        stream = io.BytesIO()
+        Image.new('RGB', (10, 10)).save(stream, 'PNG')
+        stream.seek(0)
+        return stream, name
 
     def test_public_welcome_and_protected_routes(self):
         self.assertIn(b'Create an account', self.client.get('/').data)
@@ -191,8 +202,42 @@ class AppTests(unittest.TestCase):
         self.assertEqual(self.db['add_checkin'].call_args.args[:2], (1, 1))
         self.assertIn('never+checked+in', self.post('/member/events/1/handlecheckout', code='XYZ789').location)
 
+    @patch('posters.cloudinary.uploader.destroy', return_value={'result': 'ok'})
+    @patch('posters.cloudinary.uploader.upload')
+    def test_poster_create_replace_and_remove(self, upload, destroy):
+        self.sign_in(is_admin=True)
+        upload.return_value = {'secure_url': 'https://images.example/new.png', 'public_id': 'new'}
+        self.assertEqual(self.post('/admin/events/create', **self.form(flyer=self.image())).status_code, 302)
+        self.assertEqual(self.db['add_event'].call_args.args[-2:], ('https://images.example/new.png', 'new'))
+        self.event.update(graphic_link='https://images.example/old.png', graphic_public_id='old')
+        self.post('/admin/events/1/edit', **self.form(flyer=self.image()))
+        self.assertEqual(destroy.call_args.args[0], 'old')
+        self.post('/admin/events/1/edit', **self.form(remove_poster='yes'))
+        self.assertEqual(self.db['update_event'].call_args.args[-2:], (None, None))
+        self.assertIn(b'https://images.example/old.png', self.client.get('/member/events/1').data)
 
+    @patch('posters.cloudinary.uploader.upload')
+    def test_invalid_images_never_reach_cloudinary(self, upload):
+        self.sign_in(is_admin=True)
+        for image in ((io.BytesIO(b'not an image'), 'poster.png'), self.image('poster.svg'),
+                      (io.BytesIO(b'x' * (5 * 1024 * 1024 + 1)), 'poster.png')):
+            self.assertEqual(self.post('/admin/events/create', **self.form(flyer=image)).status_code, 400)
+        upload.assert_not_called()
+        self.db['add_event'].assert_not_called()
 
+    @patch('posters.cloudinary.uploader.destroy', return_value={'result': 'ok'})
+    @patch('posters.cloudinary.uploader.upload')
+    def test_storage_and_database_failures_preserve_event(self, upload, destroy):
+        self.sign_in(is_admin=True)
+        upload.side_effect = CloudinaryError('offline')
+        self.assertEqual(self.post('/admin/events/1/edit', **self.form(flyer=self.image())).status_code, 502)
+        self.db['update_event'].assert_not_called()
+        upload.side_effect = None
+        upload.return_value = {'secure_url': 'https://images.example/new.png', 'public_id': 'new'}
+        self.db['update_event'].side_effect = psycopg.OperationalError('offline')
+        with self.assertRaises(psycopg.OperationalError):
+            self.post('/admin/events/1/edit', **self.form(flyer=self.image()))
+        self.assertEqual(destroy.call_args.args[0], 'new')
 
 
 @unittest.skipUnless(os.getenv('TEST_DATABASE_URL'), 'Set TEST_DATABASE_URL for PostgreSQL checks.')
