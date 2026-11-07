@@ -17,7 +17,8 @@
 
     {% for event in admin_events %}
       <div class="event-card">
-        <a href="/admin/events/{{ event.event_id }}/edit" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
+        <!-- TODO: Update href. -->
+        <a href="#" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
         <!-- TODO: Button to lock/unlock codes. -->
         <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
         <p class="header-bold">{{ event.title }}</p>

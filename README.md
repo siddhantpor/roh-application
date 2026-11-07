@@ -85,6 +85,8 @@ file to Flask; Flask validates it and uploads it to Cloudinary. PostgreSQL store
 show the stored image. JPEG, PNG, and WebP are accepted, up to 5 MB and 25 megapixels.
 Replacement saves the new reference before deleting the old image. Failed storage
 cleanup is logged for manual retry. Cloudinary credentials never reach templates.
+The edit route is available directly; wiring the dashboard edit button remains
+with the event UI work.
 
 ## Code map
 
@@ -116,8 +118,11 @@ Manually verify real signup, email verification, admin approval, direct admin UR
 rejection as a volunteer, logout, and poster upload/replacement/removal. The reported
 live login failure still needs its exact error and service logs to diagnose.
 
-Dashboard design/navigation, RSVP forms, attendee-directory integration, and the
-My Hours summary screen remain with the event/volunteer UI work. Existing check-in
+Clickable event cards, displayed date formatting, dashboard edit buttons/navigation,
+RSVP forms, attendee-directory integration, and the My Hours summary screen remain
+with the event/volunteer UI work. Custom error pages are deferred; Flask's default
+error responses are used. Authorization, file validation, and upload-failure cleanup
+remain part of the authentication and poster features. Existing check-in
 and admin hours-review routes are retained. The check-in time window, RSVP gating,
 and persistence of hours-edit reasons remain unfinished. The Auth0 hosted page is
 branded in Auth0's dashboard. Render deployment configuration is a separate step.

@@ -7,7 +7,6 @@ import click
 import dotenv
 import flask
 from flask_wtf.csrf import CSRFProtect
-from werkzeug.exceptions import HTTPException
 
 import auth
 import checkin
@@ -63,14 +62,6 @@ def create_app(test_config=None):
             return flask.redirect(flask.url_for('auth.membership'))
         endpoint = 'events.admin_events' if user['is_admin'] else 'events.member_events'
         return flask.redirect(flask.url_for(endpoint))
-
-    @app.errorhandler(HTTPException)
-    def http_error(error):
-        return flask.render_template('error.html', error=error), error.code
-
-    @app.errorhandler(500)
-    def server_error(error):
-        return flask.render_template('error.html', error=error), 500
 
     @app.after_request
     def response_headers(response):
