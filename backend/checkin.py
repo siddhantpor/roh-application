@@ -34,6 +34,12 @@ LOCAL_TIMEZONE = zoneinfo.ZoneInfo('America/New_York')
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 CODE_LENGTH = 6
 
+# trying with human readable words 
+CODE_NUMBERS = '0123456789'
+NUMS_LENGTH = 2
+with open('eff_large_wordlist.txt') as f:
+    WORDS = [row.split()[1] for row in f]
+
 #-----------------------------------------------------------------------
 # Route registration
 #-----------------------------------------------------------------------
@@ -453,8 +459,15 @@ def _add_display_fields(record):
 def _generate_code():
 
     # secrets, not random: codes must not be guessable.
-    return ''.join(secrets.choice(CODE_ALPHABET)
-        for _ in range(CODE_LENGTH))
+    # return ''.join(secrets.choice(CODE_ALPHABET)
+    #     for _ in range(CODE_LENGTH))
+    
+    number = ''
+    for _ in range(NUMS_LENGTH):
+        number += secrets.choice(CODE_NUMBERS)
+    
+    word = secrets.choice(WORDS)
+    return f'{word}{number}'
 
 #-----------------------------------------------------------------------
 
