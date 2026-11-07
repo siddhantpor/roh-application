@@ -1,19 +1,21 @@
 # roh-application
+
 rays of hope | cos 333
 
-## Running locally
+### Install and run
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python app.py
+python backend/app.py
 ```
 
-Then open http://127.0.0.1:5001. Stop the server with `Ctrl+C`.
+Open http://localhost:5001. Volunteers can sign up with an email and password and users listed in `ADMIN_EMAILS` are sent to the admin pages. Stop the server with `Ctrl+C`.
 
 ## Project layout
 
+<<<<<<< HEAD
 - `app.py` – Flask routes and in-memory sample data
 - `templates/` – Jinja templates (events list, create event, event detail, attendees)
 - `static/css/style.css` – styles
@@ -76,3 +78,11 @@ All of these are needed by the check-in / hours subsystem. Need to discuss:
    with `secrets`, not `random`. 
 5. **Hours.** Not stored. Computed from an approved check-in + approved check-out pair.
    An admin cannot approve a row that has no check-out time.
+=======
+- `backend/app.py` – Flask routes
+- `backend/auth.py` – Auth0 login/signup/logout and route protection
+- `frontend/templates/` – Jinja templates (`event-management/admin/`, `event-management/member/`, shared header/footer)
+- `frontend/static/css/style.css` – styles
+- `frontend/static/images/` – committed images
+- `.env.example` – environment variables needed to run the app
+>>>>>>> chinmaya/auth
