@@ -5,6 +5,7 @@ import flask
 
 import auth
 import database
+import posters
 
 bp = flask.Blueprint('events', __name__)
 
@@ -44,19 +45,43 @@ def _event_form(event=None):
     if flask.request.method == 'POST':
         values = {key: flask.request.form.get(key, '').strip() for key in
                   ('date', 'title', 'start_time', 'end_time', 'location', 'description')}
+        uploaded_id = None
         try:
             _validate_event(values)
+            flyer = flask.request.files.get('flyer')
+            remove = flask.request.form.get('remove_poster') == 'yes'
+            if remove and flyer and flyer.filename:
+                raise ValueError('Choose either a replacement poster or Remove poster.')
+            url = event['graphic_link'] if event else None
+            public_id = event['graphic_public_id'] if event else None
+            if flyer and flyer.filename:
+                url, public_id = posters.upload(flyer)
+                uploaded_id = public_id
+            elif remove:
+                url, public_id = None, None
             args = [values[key] for key in ('date', 'start_time', 'end_time', 'title', 'description', 'location')]
-            if event:
-                database.update_event(event['event_id'], *args, event['graphic_link'], event['graphic_public_id'])
-                event_id = event['event_id']
-            else:
-                event_id = database.add_event(*args)
+            try:
+                if event:
+                    database.update_event(event['event_id'], *args, url, public_id)
+                    event_id = event['event_id']
+                else:
+                    event_id = database.add_event(*args, url, public_id)
+            except Exception:
+                if uploaded_id:
+                    posters.delete(uploaded_id)
+                raise
+            # Delete the old asset only after its replacement is saved successfully.
+            if event and event['graphic_public_id'] and event['graphic_public_id'] != public_id:
+                if not posters.delete(event['graphic_public_id']):
+                    flask.flash('Event saved. The old poster could not be removed from storage; an administrator must retry cleanup.')
             flask.flash('Event saved.')
             return flask.redirect(flask.url_for('events.admin_event_detail', event_id=event_id))
         except ValueError as error:
             flask.flash(str(error))
             status = 400
+        except posters.PosterServiceError as error:
+            flask.flash(str(error))
+            status = 502
     return flask.render_template('event-management/admin/create_event.html', event=event, values=values), status
 
 

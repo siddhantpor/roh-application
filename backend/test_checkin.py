@@ -14,6 +14,8 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 from authlib.integrations.base_client.errors import OAuthError
+from cloudinary.exceptions import Error as CloudinaryError
+from PIL import Image
 
 from app import create_app
 import database
@@ -67,6 +69,11 @@ class IntegratedAppTests(unittest.TestCase):
         data.update(changes)
         return data
 
+    def image(self, filename='poster.png'):
+        stream = io.BytesIO()
+        Image.new('RGB', (20, 20), 'green').save(stream, format='PNG')
+        stream.seek(0)
+        return stream, filename
 
     def test_logged_out_routes_redirect(self):
         for path in ('/member/events', '/admin/events', '/member/events/1/checkin'):
@@ -386,11 +393,69 @@ class IntegratedAppTests(unittest.TestCase):
         self.assertEqual(len(event['checkin_code']), 6)
         self.assertNotEqual(event['checkin_code'], event['checkout_code'])
 
+    @patch('posters.cloudinary.uploader.destroy', return_value={'result': 'ok'})
+    @patch('posters.cloudinary.uploader.upload')
+    def test_poster_create_display_replace_remove(self, upload, destroy):
+        self.login('tdouglas')
+        upload.return_value = {'secure_url': 'https://res.cloudinary.com/test/first.png', 'public_id': 'first'}
+        self.assertEqual(self.post('/admin/events/create', self.form(flyer=self.image())).status_code, 302)
+        self.assertEqual(self.event(3)['graphic_public_id'], 'first')
+        self.assertIn(b'https://res.cloudinary.com/test/first.png', self.client.get('/member/events/3').data)
+        upload.return_value = {'secure_url': 'https://res.cloudinary.com/test/second.png', 'public_id': 'second'}
+        self.post('/admin/events/3/edit', self.form(flyer=self.image()))
+        self.assertEqual(self.event(3)['graphic_public_id'], 'second')
+        self.assertEqual(destroy.call_args.args[0], 'first')
+        self.post('/admin/events/3/edit', self.form(remove_poster='yes'))
+        self.assertIsNone(self.event(3)['graphic_link'])
+        self.assertEqual(destroy.call_args.args[0], 'second')
+        self.assertFalse(upload.call_args.kwargs['overwrite'])
 
+    @patch('posters.cloudinary.uploader.upload')
+    def test_invalid_and_oversized_images_never_upload(self, upload):
+        self.login('tdouglas')
+        for flyer in ((io.BytesIO(b'fake'), 'fake.png'), self.image('fake.svg'),
+                      (io.BytesIO(b'x' * (5 * 1024 * 1024 + 1)), 'big.png')):
+            self.assertEqual(self.post('/admin/events/create', self.form(flyer=flyer)).status_code, 400)
+        upload.assert_not_called()
+        self.assertIsNone(self.event(3))
+        response = self.post('/admin/events/create', self.form(flyer=(io.BytesIO(b'x' * (7 * 1024 * 1024)), 'big.png')))
+        self.assertEqual(response.status_code, 413)
 
+    @patch('posters.cloudinary.uploader.upload', side_effect=CloudinaryError('offline'))
+    def test_upload_failure_preserves_event(self, upload):
+        self.login('tdouglas')
+        response = self.post('/admin/events/1/edit', self.form(flyer=self.image()))
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(self.event(1)['event_title'], 'Park Cleanup')
+        self.assertIn(b'Community Day', response.data)  # retain submitted form fields
 
+    @patch('posters.cloudinary.uploader.destroy', return_value={'result': 'ok'})
+    @patch('posters.cloudinary.uploader.upload', return_value={'secure_url': 'https://test/new.png', 'public_id': 'new'})
+    def test_database_failure_cleans_new_upload(self, upload, destroy):
+        self.login('tdouglas')
+        with patch('databasesqlite.update_event', side_effect=sqlite3.OperationalError('write failed')):
+            with self.assertRaises(sqlite3.OperationalError):
+                self.post('/admin/events/1/edit', self.form(flyer=self.image()))
+        destroy.assert_called_once()
+        self.assertEqual(destroy.call_args.args[0], 'new')
+        self.assertEqual(self.event(1)['event_title'], 'Park Cleanup')
 
+    @patch('posters.cloudinary.uploader.destroy', side_effect=CloudinaryError('offline'))
+    @patch('posters.cloudinary.uploader.upload', return_value={'secure_url': 'https://test/new.png', 'public_id': 'new'})
+    def test_failed_old_poster_cleanup_keeps_saved_event(self, upload, destroy):
+        self.login('tdouglas')
+        self.post('/admin/events/1/edit', self.form(flyer=self.image()))
+        with self.assertLogs(self.app.logger, level='ERROR') as logs:
+            response = self.post('/admin/events/1/edit', self.form(remove_poster='yes'))
+        self.assertEqual(response.status_code, 302)
+        self.assertIsNone(self.event(1)['graphic_link'])
+        self.assertIn('public_id=new', logs.output[0])
 
+    def test_missing_upload_config_does_not_block_events_without_posters(self):
+        self.login('tdouglas')
+        self.app.config['CLOUDINARY_API_SECRET'] = ''
+        self.assertEqual(self.post('/admin/events/create', self.form()).status_code, 302)
+        self.assertEqual(self.post('/admin/events/3/edit', self.form(flyer=self.image())).status_code, 502)
 
     def test_init_refuses_existing_db_and_migration_is_repeatable(self):
         runner = self.app.test_cli_runner()

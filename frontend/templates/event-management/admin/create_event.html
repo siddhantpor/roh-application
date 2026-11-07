@@ -39,6 +39,15 @@
         <strong>Description</strong>
         <textarea name="description" maxlength="10000">{{ values.get('description', '') or '' }}</textarea>
       </label>
+      {% if event and event.graphic_link %}
+        <img class="event-poster" src="{{ event.graphic_link }}" alt="Current poster for {{ event.event_title }}">
+        <label><input type="checkbox" name="remove_poster" value="yes"> Remove current poster</label>
+      {% endif %}
+      <label class="create-event-card">
+        <strong>{{ 'Replace poster' if event else 'Event poster' }}</strong>
+        <input type="file" name="flyer" accept="image/jpeg,image/png,image/webp">
+        <span>JPEG, PNG, or WebP, up to 5 MB and 25 megapixels. Optional.</span>
+      </label>
       <button type="submit" class="button create-event-button button-yellow">Save Event</button>
     </form>
     {% include 'footer.html' %}
