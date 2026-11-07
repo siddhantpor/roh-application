@@ -1,78 +1,123 @@
-# roh-application
-rays of hope | cos 333
+# Rays of Hope
 
-## Running locally
+One Flask application serves the existing event and check-in pages. Auth0 handles
+identity, PostgreSQL stores accounts and events, and Cloudinary stores event posters.
+
+## Run locally
+
+From the repository root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python app.py
 ```
 
-Then open http://127.0.0.1:5001. Stop the server with `Ctrl+C`.
+If you do not already have a `.env`, copy `backend/.env.example` to `.env`.
+Fill in:
 
-## Project layout
+- `APP_SECRET_KEY`: a random, stable session-signing secret. Generate one with
+  `python -c 'import secrets; print(secrets.token_hex(32))'`.
+- `DATABASE_URL`: your PostgreSQL/Neon connection URL, including its required SSL options.
+- `AUTH0_DOMAIN`: your Auth0 domain without `https://`.
+- `AUTH0_CLIENT_ID` and `AUTH0_CLIENT_SECRET`: your Regular Web Application's credentials.
+- `ADMIN_EMAILS`: comma-separated verified emails to make admins on first account linking.
+- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`: server-side upload credentials.
 
-- `app.py` – Flask routes and in-memory sample data
-- `templates/` – Jinja templates (events list, create event, event detail, attendees)
-- `static/css/style.css` – styles
-- `static/images/` – committed images (sample flyer)
-- `static/uploads/` – user-uploaded flyers (git-ignored)
+Keep `.env` out of version control. Use `SESSION_COOKIE_SECURE=false` for local HTTP
+and `true` for deployed HTTPS. Leave `FLASK_DEBUG=0` outside local debugging.
 
-## Database (local dev)
+In Auth0 application settings, register:
 
-There are two interchangeable backends, in Dondero's Penny layout:
+- Allowed Callback URLs: `http://localhost:5001/callback`
+- Allowed Logout URLs: `http://localhost:5001/loggedout`
 
-- `backend/databasepostgresql.py` + `backend/roh_postgres.sql`: the real one (Neon).
-  Needs `DATABASE_URL` in `backend/.env` (see `backend/.env.example`).
-- `backend/databasesqlite.py` + `backend/roh.sql`: dev only, zero setup, runs on any laptop.
+Enable the application's email/password connection and verify your signup email.
 
-`backend/database.py` picks Postgres when `DATABASE_URL` is set and SQLite otherwise;
-the rest of the code just does `import database`. Both modules have a `_test()`;
-`python3 databasesqlite.py` / `python3 databasepostgresql.py` runs it and the output
-of the two must be identical.
-
-To build the SQLite database:
+For the existing team PostgreSQL database, apply the additive migration:
 
 ```bash
-cd backend
-sqlite3 roh.sqlite < roh.sql
+python -m flask --app backend/app migrate-db
 ```
 
-(or, without the `sqlite3` tool:
-`python3 -c "import sqlite3; c=sqlite3.connect('roh.sqlite'); c.executescript(open('roh.sql').read()); c.commit()"`)
+This adds `accounts.auth0_sub` and `events.graphic_public_id`; it does not reset data.
+The existing check-in columns/constraints must already be present; see
+`backend/migrate_checkin.sql` if they have not been applied. Do not rerun seed scripts
+against a database containing real accounts or attendance.
 
-`roh.sqlite` is git-ignored; rebuild it from `roh.sql` whenever the schema changes.
+For an empty PostgreSQL database, run `backend/roh_postgres.sql` in its SQL editor
+first. It creates the required tables without demo accounts.
 
-### Differences from the schema in ProjectOverview.pdf (Section 6)
+Start the app:
 
-All of these are needed by the check-in / hours subsystem. Need to discuss:
+```bash
+python backend/app.py
+```
 
-1. `checkins` and `checkouts` are keyed by `(user_id, event_id)`, not
-   `user_id` alone. With `user_id` alone a member could only ever check
-   in to one event, ever.
-2. `events` has `checkin_code` and `checkout_code` columns. The overview
-   has no column for the per-event codes.
-3. `events` has `start_time` and `end_time` (the event templates use
-   them; Tanisha asked for end times on Oct 14).
-4. `events.event_id` is `INTEGER PRIMARY KEY` so SQLite auto-assigns it.
-   In Postgres this becomes `BIGSERIAL` / `GENERATED AS IDENTITY`.
-5. `volunteerhours` is dropped. Hours are *derived* from an approved
-   checkin + checkout pair (`checkout.time - checkin.time`), so storing
-   them separately would just be a second copy that can go stale. If
-   the team wants it anyway, it's easy to add back.
+Open **http://localhost:5001**. One server handles the whole application.
 
-## Design choices (check-in / hours subsystem)
+## Accounts and permissions
 
+1. Sign up through Auth0, verify the email, and log in again.
+2. The callback links Auth0's unique `sub` to an application account. A verified
+   email can link a single existing account that has not already been linked.
+3. New volunteers wait at `/membership`. An admin approves, declines, or revokes
+   access at `/admin/members` (also linked from the existing admin event page).
+4. `accounts.is_admin` controls administration; `accounts.approved` controls volunteer
+   membership. The backend checks these on each request, including check-in routes.
 
-1. **Who can check in?** Anyone logged in who knows the code, RSVP or not (matches how
-   the current Google Form works, where walk-ins happen). The Project Overview says
-   "available to students who have RSVP'd" for now all can log in
-2. **When can you check in?** Any time, for now. Tanisha asked for check-in to open
-   about 15 minutes before the event start; not implemented yet (noted at the top of
-   `checkin.py`).
-3. **Codes.** 6 characters from an alphabet with no 0/O or 1/I (`CODE_ALPHABET`), made
-   with `secrets`, not `random`. 
-5. **Hours.** Not stored. Computed from an approved check-in + approved check-out pair.
-   An admin cannot approve a row that has no check-out time.
+`ADMIN_EMAILS` only applies on first linking. For an already-linked account:
+
+```bash
+python -m flask --app backend/app set-admin 'person@example.com'
+python -m flask --app backend/app set-admin 'person@example.com' --revoke
+```
+
+The command changes the database selected by `DATABASE_URL`. It does not create an
+Auth0 account or set a password. Removing admin access leaves membership approval
+unchanged. The session lasts eight hours; logout clears it and logs out of Auth0.
+
+## Event posters
+
+Admins use `/admin/events/create` or `/admin/events/<id>/edit`. The browser posts the
+file to Flask; Flask validates it and uploads it to Cloudinary. PostgreSQL stores
+`graphic_link` and `graphic_public_id` on the event. Existing event detail pages
+show the stored image. JPEG, PNG, and WebP are accepted, up to 5 MB and 25 megapixels.
+Replacement saves the new reference before deleting the old image. Failed storage
+cleanup is logged for manual retry. Cloudinary credentials never reach templates.
+
+## Code map
+
+- `backend/app.py`: configuration, shared app setup, and admin/migration commands.
+- `backend/auth.py`: Auth0 routes, sessions, and access checks.
+- `backend/events.py`: existing event routes, membership review, and event forms.
+- `backend/checkin.py`: existing check-in, codes, and hours-review logic.
+- `backend/databasepostgresql.py`: direct SQL queries and one connection pool.
+- `backend/posters.py`: image validation and Cloudinary upload/deletion.
+- `frontend/templates/` and `frontend/static/`: Jinja pages and existing styling.
+
+Blueprints group route functions; registering them on `create_app()` makes them
+part of one Flask server. A protected request goes through the shared auth check,
+then its route queries PostgreSQL and renders a template. No frontend state library
+or separate API server is involved.
+
+## Verification and remaining work
+
+```bash
+python -m unittest discover -s backend -p 'test_*.py' -v
+```
+
+Default tests mock database/external-service calls. To run the PostgreSQL checks,
+set `TEST_DATABASE_URL` to a disposable test database connection URL, then rerun the
+command. These checks create a uniquely named schema and remove only that schema.
+They do not run the demo seed script or use `DATABASE_URL` as a fallback.
+
+Manually verify real signup, email verification, admin approval, direct admin URL
+rejection as a volunteer, logout, and poster upload/replacement/removal. The reported
+live login failure still needs its exact error and service logs to diagnose.
+
+Dashboard design/navigation, RSVP forms, attendee-directory integration, and the
+My Hours summary screen remain with the event/volunteer UI work. Existing check-in
+and admin hours-review routes are retained. The check-in time window, RSVP gating,
+and persistence of hours-edit reasons remain unfinished. The Auth0 hosted page is
+branded in Auth0's dashboard. Render deployment configuration is a separate step.
