@@ -3,7 +3,7 @@
 #-----------------------------------------------------------------------
 # checkin.py
 # Routes for check-in / check-out / review hours. Registered with
-# init(app) so they can go on any Flask app. GET handlers render a
+# a Blueprint on the shared Flask app. GET handlers render a
 # page; POST handlers validate, write, and redirect back.
 #
 # Screens: S10 member check-in (3 states), S6 admin codes,
@@ -21,7 +21,7 @@ import zoneinfo
 import secrets
 import flask
 import auth
-import database
+import databasepostgresql as database
 
 #-----------------------------------------------------------------------
 # Design choices (see README.md, "Design choices")
@@ -38,45 +38,20 @@ CODE_LENGTH = 6
 # Route registration
 #-----------------------------------------------------------------------
 
-def init(app):
+bp = flask.Blueprint('checkin', __name__)
 
-    # Member side (S10)
-    app.add_url_rule('/member/events/<int:event_id>/checkin',
-        'member_checkin', member_checkin, methods=['GET'])
-    app.add_url_rule('/member/events/<int:event_id>/handlecheckin',
-        'handle_member_checkin', handle_member_checkin, methods=['POST'])
-    app.add_url_rule('/member/events/<int:event_id>/handlecheckout',
-        'handle_member_checkout', handle_member_checkout,
-        methods=['POST'])
 
-    # Admin side (S6, S11a, S11b)
-    app.add_url_rule('/admin/events/<int:event_id>/codes',
-        'admin_codes', admin_codes, methods=['GET'])
-    app.add_url_rule('/admin/events/<int:event_id>/handlecodes',
-        'handle_admin_codes', handle_admin_codes, methods=['POST'])
-    app.add_url_rule('/admin/events/<int:event_id>/hours',
-        'admin_hours', admin_hours, methods=['GET'])
-    app.add_url_rule('/admin/events/<int:event_id>/handleapprove',
-        'handle_admin_approve', handle_admin_approve, methods=['POST'])
-    app.add_url_rule('/admin/events/<int:event_id>/handleapproveall',
-        'handle_admin_approve_all', handle_admin_approve_all,
-        methods=['POST'])
-    app.add_url_rule('/admin/events/<int:event_id>/hours/<int:user_id>',
-        'admin_edit_hours', admin_edit_hours, methods=['GET'])
-    app.add_url_rule(
-        '/admin/events/<int:event_id>/hours/<int:user_id>/handleedit',
-        'handle_admin_edit_hours', handle_admin_edit_hours,
-        methods=['POST'])
+bp.before_request(auth.protect_request)
 
 #-----------------------------------------------------------------------
 # Member: one page, three states (S10)
 #-----------------------------------------------------------------------
 
+@bp.get('/member/events/<int:event_id>/checkin')
 def member_checkin(event_id):
 
-    auth.authenticate()
     username = auth.get_username()
-    user_id = database.get_user_id(username)
+    user_id = auth.get_user()['user_id']
 
     event = database.get_event(event_id)
     if event is None:
@@ -120,11 +95,10 @@ def member_checkin(event_id):
 
 #-----------------------------------------------------------------------
 
+@bp.post('/member/events/<int:event_id>/handlecheckin')
 def handle_member_checkin(event_id):
 
-    auth.authenticate()
-    username = auth.get_username()
-    user_id = database.get_user_id(username)
+    user_id = auth.get_user()['user_id']
 
     event = database.get_event(event_id)
     if event is None:
@@ -151,11 +125,10 @@ def handle_member_checkin(event_id):
 
 #-----------------------------------------------------------------------
 
+@bp.post('/member/events/<int:event_id>/handlecheckout')
 def handle_member_checkout(event_id):
 
-    auth.authenticate()
-    username = auth.get_username()
-    user_id = database.get_user_id(username)
+    user_id = auth.get_user()['user_id']
 
     event = database.get_event(event_id)
     if event is None:
@@ -185,12 +158,10 @@ def handle_member_checkout(event_id):
 # Admin: codes (S6)
 #-----------------------------------------------------------------------
 
+@bp.get('/admin/events/<int:event_id>/codes')
 def admin_codes(event_id):
 
-    auth.authenticate()
     username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -204,12 +175,9 @@ def admin_codes(event_id):
 
 #-----------------------------------------------------------------------
 
+@bp.post('/admin/events/<int:event_id>/handlecodes')
 def handle_admin_codes(event_id):
 
-    auth.authenticate()
-    username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -222,18 +190,16 @@ def handle_admin_codes(event_id):
         checkout_code = _generate_code()
     database.set_event_codes(event_id, checkin_code, checkout_code)
 
-    return flask.redirect(flask.url_for('admin_codes', event_id=event_id))
+    return flask.redirect(flask.url_for('checkin.admin_codes', event_id=event_id))
 
 #-----------------------------------------------------------------------
 # Admin: review hours list (S11a)
 #-----------------------------------------------------------------------
 
+@bp.get('/admin/events/<int:event_id>/hours')
 def admin_hours(event_id):
 
-    auth.authenticate()
     username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -264,14 +230,11 @@ def admin_hours(event_id):
 
 #-----------------------------------------------------------------------
 
+@bp.post('/admin/events/<int:event_id>/handleapprove')
 def handle_admin_approve(event_id):
 
     # Approve one row as-is.
 
-    auth.authenticate()
-    username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -293,18 +256,15 @@ def handle_admin_approve(event_id):
         msg = f'Approved {record["display_name"]}'
 
     return flask.redirect(
-        flask.url_for('admin_hours', event_id=event_id, msg=msg))
+        flask.url_for('checkin.admin_hours', event_id=event_id, msg=msg))
 
 #-----------------------------------------------------------------------
 
+@bp.post('/admin/events/<int:event_id>/handleapproveall')
 def handle_admin_approve_all(event_id):
 
     # Approve every ready, not-yet-approved row.
 
-    auth.authenticate()
-    username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -322,18 +282,16 @@ def handle_admin_approve_all(event_id):
 
     msg = f'Approved {count} entries'
     return flask.redirect(
-        flask.url_for('admin_hours', event_id=event_id, msg=msg))
+        flask.url_for('checkin.admin_hours', event_id=event_id, msg=msg))
 
 #-----------------------------------------------------------------------
 # Admin: edit one member's hours (S11b)
 #-----------------------------------------------------------------------
 
+@bp.get('/admin/events/<int:event_id>/hours/<int:user_id>')
 def admin_edit_hours(event_id, user_id):
 
-    auth.authenticate()
     username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -356,14 +314,11 @@ def admin_edit_hours(event_id, user_id):
 
 #-----------------------------------------------------------------------
 
+@bp.post('/admin/events/<int:event_id>/hours/<int:user_id>/handleedit')
 def handle_admin_edit_hours(event_id, user_id):
 
     # Both S11b buttons post here: action=save or action=reject.
 
-    auth.authenticate()
-    username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -380,11 +335,11 @@ def handle_admin_edit_hours(event_id, user_id):
         database.update_attendance(user_id, event_id, None, None, False)
         msg = f'Rejected {record["display_name"]}\'s entry'
         return flask.redirect(
-            flask.url_for('admin_hours', event_id=event_id, msg=msg))
+            flask.url_for('checkin.admin_hours', event_id=event_id, msg=msg))
 
     checkin_local = flask.request.form.get('checkin_time')
     checkout_local = flask.request.form.get('checkout_time')
-    reason = flask.request.form.get('reason')   # TODO: not stored yet
+    reason = flask.request.form.get('reason')   # Audit history remains future work.
 
     checkin_time = _to_utc(checkin_local)
     checkout_time = _to_utc(checkout_local)
@@ -402,28 +357,20 @@ def handle_admin_edit_hours(event_id, user_id):
             checkin_time, checkout_time, True)
         msg = f'Saved and approved {record["display_name"]}'
         return flask.redirect(
-            flask.url_for('admin_hours', event_id=event_id, msg=msg))
+            flask.url_for('checkin.admin_hours', event_id=event_id, msg=msg))
 
-    return flask.redirect(flask.url_for('admin_edit_hours',
+    return flask.redirect(flask.url_for('checkin.admin_edit_hours',
         event_id=event_id, user_id=user_id, msg=msg))
 
 #-----------------------------------------------------------------------
 # Helpers
 #-----------------------------------------------------------------------
 
-def _not_authorized():
-
-    html_code = 'You are not authorized to view this page.'
-    response = flask.make_response(html_code)
-    return response
-
-#-----------------------------------------------------------------------
-
 def _member_url(event_id, msg):
 
     if msg == '':
-        return flask.url_for('member_checkin', event_id=event_id)
-    return flask.url_for('member_checkin', event_id=event_id, msg=msg)
+        return flask.url_for('checkin.member_checkin', event_id=event_id)
+    return flask.url_for('checkin.member_checkin', event_id=event_id, msg=msg)
 
 #-----------------------------------------------------------------------
 

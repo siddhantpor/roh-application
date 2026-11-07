@@ -1,57 +1,99 @@
+"""Application setup. Run with `python backend/app.py` or Flask's CLI."""
+import os
+from datetime import timedelta
+from pathlib import Path
+
+import click
+import dotenv
 import flask
+from flask_wtf.csrf import CSRFProtect
+from werkzeug.exceptions import HTTPException
+
+import auth
+import checkin
 import databasepostgresql as database
+import events
 
-app = flask.Flask(__name__, template_folder="../frontend/templates", static_folder="../frontend/static")
 
-@app.route("/admin/events")
-def events():
-    admin_events = database.get_events()
-    return flask.render_template("event-management/admin/events.html", admin_events=admin_events)
+def create_app(test_config=None):
+    backend_dir = Path(__file__).resolve().parent
+    dotenv.load_dotenv(backend_dir.parent / '.env')
+    dotenv.load_dotenv(backend_dir / '.env')
+    app = flask.Flask(__name__, template_folder='../frontend/templates',
+                      static_folder='../frontend/static')
+    app.config.from_mapping(
+        SECRET_KEY=os.getenv('APP_SECRET_KEY'),
+        DATABASE_URL=os.getenv('DATABASE_URL', ''),
+        AUTH0_DOMAIN=os.getenv('AUTH0_DOMAIN', ''),
+        AUTH0_CLIENT_ID=os.getenv('AUTH0_CLIENT_ID', ''),
+        AUTH0_CLIENT_SECRET=os.getenv('AUTH0_CLIENT_SECRET', ''),
+        ADMIN_EMAILS={e.strip().lower() for e in os.getenv('ADMIN_EMAILS', '').split(',') if e.strip()},
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE='Lax',
+        SESSION_COOKIE_SECURE=os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true',
+        PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+        SESSION_REFRESH_EACH_REQUEST=False,
+        MAX_CONTENT_LENGTH=6 * 1024 * 1024,
+    )
+    if test_config:
+        app.config.update(test_config)
+    if not app.secret_key:
+        raise RuntimeError('Set APP_SECRET_KEY in .env (see backend/.env.example).')
 
-@app.route("/admin/events/create")
-def admin_create_event():
-    return flask.render_template("event-management/admin/create_event.html")
+    if not app.config['DATABASE_URL']:
+        raise RuntimeError('Set DATABASE_URL to your PostgreSQL connection URL.')
 
-@app.route("/admin/events/create", methods=["POST"])
-def handle_admin_create_event():
-    form = flask.request.form
-    # TODO: Integrate w/ Cloudinary + implement flyer upload logic.
-    database.add_event(form["date"], form["start_time"], form["end_time"],
-                       form["title"].strip(), form.get("description", "").strip(),
-                       form["location"].strip())
-    return flask.redirect("/admin/events")
+    database.init_app(app)
+    auth.init_app(app)
+    CSRFProtect(app)
+    app.register_blueprint(events.bp)
+    app.register_blueprint(checkin.bp)
 
-@app.route("/admin/events/<int:event_id>")
-def admin_event_detail(event_id):
-    event = database.get_event(event_id)
-    if event is None:
-        flask.abort(404)
-    return flask.render_template("event-management/admin/event_details.html", event=event)
+    @app.get('/')
+    @app.get('/index')
+    def index():
+        user = auth.get_user()
+        if user is None:
+            return flask.render_template('welcome.html')
+        if not user['is_admin'] and not user['approved']:
+            return flask.redirect(flask.url_for('auth.membership'))
+        endpoint = 'events.admin_events' if user['is_admin'] else 'events.member_events'
+        return flask.redirect(flask.url_for(endpoint))
 
-@app.route("/admin/events/<event_id>/attendees")
-def admin_attendees(event_id):
-    members = []  # TODO: Integrate w/ Cindy's database work!
-    going = len([m for m in members if m["status"] == "Going"])
-    pending = len([m for m in members if m["status"] == "Pending"])
-    not_going = len([m for m in members if m["status"] == "Not Going"])
-    return flask.render_template("event-management/admin/attendees.html",
-                                 event_id=event_id, members=members, going=going,
-                                 pending=pending, not_going=not_going)
+    @app.errorhandler(HTTPException)
+    def http_error(error):
+        return flask.render_template('error.html', error=error), error.code
 
-@app.route("/member/events")
-def member_events():
-    upcoming_events = []  # TODO: Integrate w/ Chinmaya's Auth0!
-    other_events = database.get_events()
-    return flask.render_template("event-management/member/events.html",
-                                 upcoming_events=upcoming_events,
-                                 other_events=other_events)
+    @app.errorhandler(500)
+    def server_error(error):
+        return flask.render_template('error.html', error=error), 500
 
-@app.route("/member/events/<int:event_id>")
-def member_event_detail(event_id):
-    event = database.get_event(event_id)
-    if event is None:
-        flask.abort(404)
-    return flask.render_template("event-management/member/event_details.html", event=event)
+    @app.after_request
+    def response_headers(response):
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Referrer-Policy'] = 'same-origin'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        if flask.request.endpoint != 'static':
+            response.headers['Cache-Control'] = 'no-store'
+        return response
 
-if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    @app.cli.command('migrate-db')
+    def migrate_db():
+        """Apply the additive Auth0/poster migration without resetting data."""
+        database.migrate()
+        click.echo('Applied Auth0/poster migration.')
+
+    @app.cli.command('set-admin')
+    @click.argument('email')
+    @click.option('--revoke', is_flag=True, help='Remove admin access.')
+    def set_admin(email, revoke):
+        """Grant/revoke an existing, linked account's admin access."""
+        if not database.set_admin(email.strip().lower(), not revoke):
+            raise click.ClickException('Expected one linked account with that email. Log in first.')
+        click.echo('Updated admin access.')
+
+    return app
+
+
+if __name__ == '__main__':
+    create_app().run(port=5001, debug=os.getenv('FLASK_DEBUG') == '1')

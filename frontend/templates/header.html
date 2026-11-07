@@ -1,1 +1,15 @@
-<header>Rays of Hope</header>
+<header class="site-header">
+  <a href="{{ url_for('index') }}">Rays of Hope</a>
+  {% if current_user %}
+    <form action="{{ url_for('auth.logout') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">Log out</button>
+    </form>
+  {% else %}
+    <a href="{{ url_for('auth.login') }}">Log in</a>
+    <a href="{{ url_for('auth.signup') }}">Sign up</a>
+  {% endif %}
+</header>
+{% for message in get_flashed_messages() %}
+  <p role="status">{{ message }}</p>
+{% endfor %}

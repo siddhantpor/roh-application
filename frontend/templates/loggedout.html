@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logged out · Rays of Hope</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  {% include 'header.html' %}
+  <main class="content">
+    <h1>You're logged out.</h1>
+    <a href="{{ url_for('auth.login') }}">Log in again</a>
+    <a href="{{ url_for('index') }}">Return home</a>
+  </main>
+  {% include 'footer.html' %}
+</body>
+</html>
