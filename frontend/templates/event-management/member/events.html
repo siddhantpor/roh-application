@@ -1,43 +1,39 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Rays of Hope</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-  </head>
-  <body>
-    {% include 'header.html' %}
-    <h1 class="header text-center">Hello {{ current_user.display_name }}!</h1> <!-- TODO: Replace `Student` w/ user's first name. -->
-
-    <div class="button-row">
-      <a href="/member/hours" class="button button-shadow home-button">My Hours</a> <!-- TODO: Update href. -->
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Volunteer Events · Rays of Hope</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  {% include 'header.html' %}
+  <main class="content">
+    <div class="page-heading">
+      <p class="eyebrow">Volunteer portal</p>
+      <h1>Volunteer Events</h1>
+      <p>Welcome back, {{ current_user.display_name }}. Find an event, let us know you're coming, and check in when you arrive.</p>
     </div>
-
-    <p class="caption">Your Upcoming Events</p>
-
-    {% for event in registered_events %}
-      <div class="event-card">
-        <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-green">View Details</a>
-        <p class="text-gray">{{ event.event_date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-        <p class="header-bold">{{ event.event_title }}</p>
-        <p class="subtext text-dark-gray">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
-        <div class="code-card">
-          <p class="label">Member Check-in</p>
-          <p class="text-dark-gray">Check-in Locked</p> <!-- TODO: Integrate this w/ Siddhant + Chinmayi's work! -->
-        </div>
-      </div>
-    {% endfor %}
-
-    <p class="caption">Other Events</p>
-
-    {% for event in other_events %}
-      <div class="event-card">
-        <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-yellow">Register</a>
-        <p class="text-gray">{{ event.event_date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-        <p class="header-bold">{{ event.event_title }}</p>
-        <p class="subtext text-dark-gray">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
-      </div>
-    {% endfor %}
-
-    {% include 'footer.html' %}
-  </body>
+    <section aria-labelledby="registered-heading">
+      <h2 id="registered-heading" class="section-heading">Your registered events <span class="count-badge">{{ registered_events|length }}</span></h2>
+      {% for event in registered_events %}
+        {% with management=false, registered=true %}
+          {% include 'event-management/_event_card.html' %}
+        {% endwith %}
+      {% else %}
+        <p class="empty-state">You haven't RSVP'd to any events yet. Choose an event below to see the details.</p>
+      {% endfor %}
+    </section>
+    <section aria-labelledby="other-heading">
+      <h2 id="other-heading" class="section-heading">Explore other events <span class="count-badge">{{ other_events|length }}</span></h2>
+      {% for event in other_events %}
+        {% with management=false, registered=false %}
+          {% include 'event-management/_event_card.html' %}
+        {% endwith %}
+      {% else %}
+        <p class="empty-state">No other events to show right now.</p>
+      {% endfor %}
+    </section>
+  </main>
+  {% include 'footer.html' %}
+</body>
 </html>

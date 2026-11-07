@@ -1,26 +1,32 @@
-<header>
-  <a href="{{ url_for('index') }}">Rays of Hope</a>
-  {% if current_user %}
-    <span>Logged in as {{ current_user.display_name }}</span>
-    {% if current_user_has_access %}
-    <a href="{{ url_for('events.member_events') }}">Events</a>
-    <a href="{{ url_for('events.member_hours') }}">My Hours</a>
-    {% if current_user_is_admin %}
-      <a href="{{ url_for('events.admin_events') }}">Admin Events</a>
-      <a href="{{ url_for('events.members') }}">Volunteers</a>
-    {% endif %}
-    {% else %}
-      <a href="{{ url_for('auth.membership') }}">Membership status</a>
-    {% endif %}
-    <form action="{{ url_for('auth.logout') }}" method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit">Log out</button>
-    </form>
-  {% else %}
-    <a href="{{ url_for('auth.login') }}">Log in</a>
-    <a href="{{ url_for('auth.signup') }}">Sign up</a>
-  {% endif %}
+{% set path = request.path %}
+<header class="site-header">
+  <div class="nav-shell">
+    <a href="{{ url_for('index') }}" class="brand">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="" width="44" height="44">
+      <span>Rays of Hope<small>{{ 'Admin workspace' if current_user_is_admin else 'Volunteer portal' }}</small></span>
+    </a>
+    <nav class="site-nav" aria-label="Main navigation">
+      {% if current_user %}
+        {% if current_user_is_admin %}
+          <a href="{{ url_for('events.admin_events') }}" class="nav-link" {% if path.startswith('/admin/events') %}aria-current="page"{% endif %}>Manage Events</a>
+          <a href="{{ url_for('events.members') }}" class="nav-link" {% if path.startswith('/admin/members') %}aria-current="page"{% endif %}>Manage Volunteers</a>
+        {% elif current_user_has_access %}
+          <a href="{{ url_for('events.member_events') }}" class="nav-link" {% if path.startswith('/member/events') %}aria-current="page"{% endif %}>Events</a>
+          <a href="{{ url_for('events.member_hours') }}" class="nav-link" {% if path == '/member/hours' %}aria-current="page"{% endif %}>My Hours</a>
+        {% else %}
+          <a href="{{ url_for('auth.membership') }}" class="nav-link" aria-current="page">Membership status</a>
+        {% endif %}
+        <form action="{{ url_for('auth.logout') }}" method="post" class="inline-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="nav-link nav-logout">Log out</button>
+        </form>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}" class="nav-link">Log in</a>
+        <a href="{{ url_for('auth.signup') }}" class="nav-link nav-primary">Join Rays of Hope</a>
+      {% endif %}
+    </nav>
+  </div>
 </header>
 {% for message in get_flashed_messages() %}
-  <p role="status">{{ message }}</p>
+  <p class="notice" role="status">{{ message }}</p>
 {% endfor %}

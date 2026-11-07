@@ -12,7 +12,7 @@
     <div class="page-heading">
       <p class="eyebrow">Volunteer event</p>
       <h1>{{ event.event_title }}</h1>
-      <p class="event-meta"><time datetime="{{ event.event_date }}">{{ event.event_date }}</time>{% if event.start_time %} · {{ event.start_time }}{% if event.end_time %} – {{ event.end_time }}{% endif %}{% endif %}</p>
+      <p class="event-meta"><time datetime="{{ event.event_date }}">{{ event.event_date|event_date }}</time>{% if event.start_time %} · {{ event.start_time|event_time }}{% if event.end_time %} – {{ event.end_time|event_time }}{% endif %}{% endif %}</p>
       <p class="event-meta">{{ event.event_locat or 'Location to be announced' }} · {{ event.attending }} attending</p>
     </div>
     {% if event.graphic_link %}

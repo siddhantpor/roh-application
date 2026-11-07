@@ -7,9 +7,10 @@
   </head>
   <body>
     {% include 'header.html' %}
+    <main class="content">
     <div class="header-row">
       <a href="{{ url_for('events.admin_events') }}" class="button button-shadow square-button">&lt;</a>
-      <h1 class="header-bold">{{ 'Edit' if event else 'Create' }} an Event</h1>
+      <h1 class="form-title">{{ 'Edit' if event else 'Create' }} an Event</h1>
     </div>
     <form method="post" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -50,6 +51,7 @@
       </label>
       <button type="submit" class="button create-event-button button-yellow">Save Event</button>
     </form>
+    </main>
     {% include 'footer.html' %}
   </body>
 </html>

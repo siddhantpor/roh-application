@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Rays of Hope</title>
     <link rel="stylesheet" href="/static/css/style.css">
   </head>
   <body>
     {% include 'header.html' %}
+    <main class="content">
     <div class="header-row">
       <a href="/admin/events/{{ event_id }}" class="button button-shadow square-button">&lt;</a>
       <h1 class="header-bold">Attendees</h1>
@@ -33,6 +35,7 @@
       </div>
     {% endfor %}
 
+    </main>
     {% include 'footer.html' %}
   </body>
 </html>

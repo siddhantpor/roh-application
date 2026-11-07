@@ -13,6 +13,23 @@ bp = flask.Blueprint('events', __name__)
 bp.before_request(auth.protect_request)
 
 
+@bp.app_template_filter('event_date')
+def format_event_date(value):
+    try:
+        day = datetime.date.fromisoformat(value)
+        return f"{day.strftime('%a, %b')} {day.day}, {day.year}"
+    except (TypeError, ValueError):
+        return value or 'Date to be announced'
+
+
+@bp.app_template_filter('event_time')
+def format_event_time(value):
+    try:
+        return datetime.time.fromisoformat(value).strftime('%I:%M %p').lstrip('0')
+    except (TypeError, ValueError):
+        return value or ''
+
+
 def _event_or_404(event_id):
     event = database.get_event(event_id)
     if event is None:
@@ -22,7 +39,12 @@ def _event_or_404(event_id):
 
 @bp.get('/admin/events')
 def admin_events():
-    return flask.render_template('event-management/admin/events.html', admin_events=database.get_events())
+    members = database.get_members()
+    pending_count = sum(bool(member['auth0_sub'] and member['pending'] and
+                             not member['approved'] and not member['is_admin'])
+                        for member in members)
+    return flask.render_template('event-management/admin/events.html',
+                                 admin_events=database.get_events(), pending_count=pending_count)
 
 
 @bp.route('/admin/events/create', methods=['GET', 'POST'])

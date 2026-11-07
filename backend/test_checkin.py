@@ -81,6 +81,11 @@ class IntegratedAppTests(unittest.TestCase):
             self.assertEqual(response.status_code, 302)
             self.assertTrue(response.location.startswith('/login?next='))
 
+    def test_public_welcome_page(self):
+        response = self.client.get('/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Welcome to the community', response.data)
+        self.assertIn(b'Create an account', response.data)
 
     def test_new_member_waits_for_admin_approval(self):
         response = self.login('newcomer')
@@ -165,7 +170,7 @@ class IntegratedAppTests(unittest.TestCase):
         self.assertEqual(self.login().status_code, 302)
         response = self.client.get('/member/events')
         self.assertIn(b'Park Cleanup', response.data)
-        self.assertIn(b'Alice', response.data)
+        self.assertIn(b'Welcome back, Alice.', response.data)
         self.assertNotIn(b'Manage Events', response.data)
         with self.app.app_context():
             user = database.get_account(database.get_user_id('alice'))
@@ -176,7 +181,38 @@ class IntegratedAppTests(unittest.TestCase):
             self.assertNotIn('userinfo', session)
         self.assertEqual(self.client.get('/member/events').status_code, 200)
 
+    def test_role_landing_pages_and_navigation(self):
+        self.login('tdouglas')
+        self.assertEqual(self.client.get('/').location, '/admin/events')
+        response = self.client.get('/admin/events')
+        self.assertIn(b'Manage Events', response.data)
+        self.assertIn(b'Manage Volunteers', response.data)
+        self.assertIn(b'Review membership requests', response.data)
+        self.assertNotIn(b'href="/member/events"', response.data)
+        self.assertNotIn(b'href="/member/hours"', response.data)
+        self.login()
+        self.assertEqual(self.client.get('/').location, '/member/events')
+        response = self.client.get('/member/events')
+        self.assertIn(b'Volunteer Events', response.data)
+        self.assertIn(b'href="/member/hours"', response.data)
+        self.assertNotIn(b'href="/admin/', response.data)
+        self.assertNotIn(b'Check-in code', response.data)
 
+    def test_admin_dashboard_request_count_tracks_approval(self):
+        from flask import template_rendered
+        contexts = []
+        def record_template(sender, template, context, **extra):
+            contexts.append(context)
+        self.login('newcomer')
+        with self.app.app_context():
+            user_id = database.get_user_id('auth0|newcomer')
+        self.login('tdouglas')
+        with template_rendered.connected_to(record_template, self.app):
+            self.client.get('/admin/events')
+            self.assertEqual(contexts[-1]['pending_count'], 1)
+            self.post(f'/admin/members/{user_id}/membership', {'action': 'approve'})
+            self.client.get('/admin/events')
+            self.assertEqual(contexts[-1]['pending_count'], 0)
 
     def test_existing_linked_account_admin_grant_uses_cli(self):
         self.login('newcomer')
