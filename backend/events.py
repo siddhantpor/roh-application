@@ -95,6 +95,18 @@ def members():
     return flask.render_template('event-management/admin/members.html', members=database.get_members())
 
 
+@bp.post('/admin/members/<int:user_id>/membership')
+def update_membership(user_id):
+    action = flask.request.form.get('action')
+    if action not in ('approve', 'decline', 'revoke'):
+        flask.abort(400, 'Choose a valid membership action.')
+    if not database.set_membership(user_id, action == 'approve'):
+        flask.abort(404, 'No eligible volunteer account was found.')
+    flask.flash('Membership approved.' if action == 'approve' else
+                ('Membership declined.' if action == 'decline' else 'Membership access revoked.'))
+    return flask.redirect(flask.url_for('events.members'))
+
+
 @bp.get('/member/events')
 def member_events():
     user_id = auth.get_user()['user_id']

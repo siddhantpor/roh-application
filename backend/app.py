@@ -52,6 +52,8 @@ def create_app(test_config=None):
     @app.get('/index')
     def index():
         auth.authenticate()
+        if not auth.is_admin() and not auth.get_user()['approved']:
+            return flask.redirect(flask.url_for('auth.membership'))
         endpoint = 'events.admin_events' if auth.is_admin() else 'events.member_events'
         return flask.redirect(flask.url_for(endpoint))
 

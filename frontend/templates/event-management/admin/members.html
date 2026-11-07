@@ -1,15 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
-<head><title>Volunteers · Rays of Hope</title><link rel="stylesheet" href="/static/css/style.css"></head>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manage Volunteers · Rays of Hope</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
 <body>
   {% include 'header.html' %}
-  <h1>Volunteers</h1>
-  <table>
-    <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
-    <tbody>{% for member in members %}
-      <tr><td>{{ member.name }}</td><td>{{ member.email }}</td><td>{{ 'Admin' if member.is_admin else 'Volunteer' }}</td></tr>
-    {% endfor %}</tbody>
-  </table>
+  <main class="content">
+    <div class="page-heading">
+      <p class="eyebrow">Admin workspace</p>
+      <h1>Manage Volunteers</h1>
+      <p>Review new accounts before they can access events and volunteering features.</p>
+    </div>
+    <section id="membership-requests" class="members-card" aria-labelledby="requests-title">
+      <h2 id="requests-title">Membership requests</h2>
+      <p>Approve a verified account to welcome them into the organization, or decline the request.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Volunteer</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
+          <tbody>
+          {% for member in members if member.auth0_sub and member.pending and not member.approved and not member.is_admin %}
+            <tr>
+              <td><strong>{{ member.name }}</strong><span class="member-email">{{ member.email }}</span></td>
+              <td><span class="status-badge status-pending">Pending</span></td>
+              <td>
+                <form action="{{ url_for('events.update_membership', user_id=member.user_id) }}" method="post" class="member-actions">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button name="action" value="approve" class="action-button action-primary">Approve</button>
+                  <button name="action" value="decline" class="action-button action-secondary">Decline</button>
+                </form>
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="3" class="empty-state">No accounts are waiting for review.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section class="members-card" aria-labelledby="directory-title">
+      <h2 id="directory-title">Account directory</h2>
+      <p>Revoking membership removes access immediately and keeps the volunteer's existing records.</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th scope="col">Volunteer</th><th scope="col">Role</th><th scope="col">Membership</th><th scope="col">Actions</th></tr></thead>
+          <tbody>{% for member in members %}
+            <tr>
+              <td><strong>{{ member.name }}</strong><span class="member-email">{{ member.email }}</span></td>
+              <td>{{ 'Admin' if member.is_admin else 'Volunteer' }}</td>
+              <td>
+                {% if member.is_admin or member.approved %}<span class="status-badge status-approved">Approved</span>
+                {% elif member.pending %}<span class="status-badge status-pending">Pending</span>
+                {% else %}<span class="status-badge status-declined">Not approved</span>{% endif %}
+              </td>
+              <td>
+                {% if not member.is_admin and member.auth0_sub and not member.pending %}
+                  <form action="{{ url_for('events.update_membership', user_id=member.user_id) }}" method="post" class="member-actions">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% if member.approved %}
+                      <button name="action" value="revoke" class="action-button action-danger">Revoke access</button>
+                    {% else %}
+                      <button name="action" value="approve" class="action-button action-secondary">Approve</button>
+                    {% endif %}
+                  </form>
+                {% elif member.is_admin %}<span class="muted">Admin account</span>
+                {% elif not member.auth0_sub %}<span class="muted">Hasn't logged in yet</span>
+                {% else %}<span class="muted">Awaiting review above</span>{% endif %}
+              </td>
+            </tr>
+          {% endfor %}</tbody>
+        </table>
+      </div>
+    </section>
+  </main>
   {% include 'footer.html' %}
 </body>
 </html>

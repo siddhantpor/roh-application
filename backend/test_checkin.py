@@ -75,9 +75,84 @@ class IntegratedAppTests(unittest.TestCase):
             self.assertTrue(response.location.startswith('/login?next='))
 
 
+    def test_new_member_waits_for_admin_approval(self):
+        response = self.login('newcomer')
+        self.assertEqual(response.location, '/membership')
+        with self.app.app_context():
+            user_id = database.get_user_id('auth0|newcomer')
+            user = database.get_account(user_id)
+            self.assertFalse(user['approved'])
+            self.assertTrue(user['pending'])
+        response = self.client.get('/membership')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Awaiting review', response.data)
+        self.assertNotIn(b'My Hours', response.data)
+        self.assertNotIn(b'Manage Events', response.data)
+        self.assertEqual(self.client.get('/').location, '/membership')
+        # Attempt every protected endpoint with valid CSRF; none may execute.
+        token = self.csrf()
+        for rule in self.app.url_map.iter_rules():
+            if not rule.rule.startswith(('/member/', '/admin/')):
+                continue
+            path = rule.rule.replace('<int:event_id>', '1').replace('<int:user_id>', '2')
+            for method in rule.methods & {'GET', 'POST'}:
+                with self.subTest(path=path, method=method):
+                    response = self.client.open(path, method=method, data={'csrf_token': token})
+                    expected = 302 if method == 'GET' and path.startswith('/member/') else 403
+                    self.assertEqual(response.status_code, expected)
+                    if expected == 302:
+                        self.assertEqual(response.location, '/membership')
+        self.assertEqual(self.post('/logout').status_code, 302)
 
+    def test_admin_approves_and_revokes_existing_member_session(self):
+        self.login('newcomer')
+        volunteer = self.client
+        with self.app.app_context():
+            user_id = database.get_user_id('auth0|newcomer')
+        self.client = self.app.test_client()
+        self.login('tdouglas')
+        self.assertIn(b'newcomer@example.com', self.client.get('/admin/members').data)
+        path = f'/admin/members/{user_id}/membership'
+        self.assertEqual(self.client.post(path, data={'action': 'approve'}).status_code, 400)
+        self.assertEqual(self.post(path, {'action': 'approve'}).status_code, 302)
+        self.assertIn(volunteer.get('/membership').location, ('/', '/index'))
+        self.assertEqual(volunteer.get('/member/events').status_code, 200)
+        self.assertEqual(volunteer.get('/admin/members').status_code, 403)
+        # Revocation blocks the next request without logging the volunteer out.
+        self.assertEqual(self.post(path, {'action': 'revoke'}).status_code, 302)
+        self.assertEqual(volunteer.get('/member/events').location, '/membership')
+        self.assertIn(b'Access not approved', volunteer.get('/membership').data)
+        with self.app.app_context():
+            self.assertIsNotNone(database.get_account(user_id))
 
+    def test_declined_membership_persists_on_login_and_can_be_reconsidered(self):
+        self.login('newcomer')
+        with self.app.app_context():
+            user_id = database.get_user_id('auth0|newcomer')
+        self.login('tdouglas')
+        path = f'/admin/members/{user_id}/membership'
+        self.post(path, {'action': 'decline'})
+        self.login('newcomer')
+        self.assertIn(b'Access not approved', self.client.get('/membership').data)
+        self.assertEqual(self.post('/member/events/1/rsvp', {'response': 'going'}).status_code, 403)
+        self.login('tdouglas')
+        self.post(path, {'action': 'approve'})
+        self.login('newcomer')
+        self.assertEqual(self.client.get('/member/events').status_code, 200)
 
+    def test_membership_changes_preserve_history_and_cannot_disable_admins(self):
+        self.login()  # link Alice, whose seeded attendance/RSVP history must survive
+        self.login('tdouglas')
+        self.assertEqual(self.post('/admin/members/1/membership', {'action': 'decline'}).status_code, 404)
+        self.assertEqual(self.post('/admin/members/999/membership', {'action': 'approve'}).status_code, 404)
+        self.assertEqual(self.post('/admin/members/2/membership', {'action': 'bad'}).status_code, 400)
+        self.post('/admin/members/2/membership', {'action': 'revoke'})
+        with self.app.app_context():
+            self.assertIsNotNone(database.get_checkin(2, 1))
+            self.assertIsNotNone(database.get_checkout(2, 1))
+            self.assertTrue(database.get_rsvp(2, 1))
+        self.login()
+        self.assertEqual(self.client.get('/member/events').location, '/membership')
 
     def test_existing_account_link_and_refresh(self):
         self.assertEqual(self.login().status_code, 302)

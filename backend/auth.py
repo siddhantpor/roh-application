@@ -99,6 +99,8 @@ def callback():
     flask.session.permanent = True
     lifetime = flask.current_app.permanent_session_lifetime.total_seconds()
     flask.session.update(user_id=user['user_id'], auth0_sub=userinfo['sub'], expires_at=time.time() + lifetime)
+    if not user['is_admin'] and not user['approved']:
+        return flask.redirect(flask.url_for('auth.membership'))
     return flask.redirect(next_url)
 
 
@@ -110,6 +112,15 @@ def logout():
         'returnTo': flask.url_for('auth.loggedout', _external=True),
         'client_id': flask.current_app.config['AUTH0_CLIENT_ID'],
     }))
+
+
+@bp.get('/membership')
+def membership():
+    authenticate()
+    user = get_user()
+    if user['is_admin'] or user['approved']:
+        return flask.redirect(flask.url_for('index'))
+    return flask.render_template('membership.html')
 
 
 @bp.get('/loggedout')
@@ -162,3 +173,7 @@ def protect_request():
         authenticate_admin()
     else:
         authenticate()
+        if not get_user()['approved'] and not is_admin():
+            if flask.request.method in ('GET', 'HEAD'):
+                flask.abort(flask.redirect(flask.url_for('auth.membership')))
+            flask.abort(403, 'Organization membership approval is required.')

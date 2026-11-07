@@ -2,11 +2,15 @@
   <a href="{{ url_for('index') }}">Rays of Hope</a>
   {% if current_user %}
     <span>Logged in as {{ current_user.display_name }}</span>
+    {% if current_user_has_access %}
     <a href="{{ url_for('events.member_events') }}">Events</a>
     <a href="{{ url_for('events.member_hours') }}">My Hours</a>
     {% if current_user_is_admin %}
       <a href="{{ url_for('events.admin_events') }}">Admin Events</a>
       <a href="{{ url_for('events.members') }}">Volunteers</a>
+    {% endif %}
+    {% else %}
+      <a href="{{ url_for('auth.membership') }}">Membership status</a>
     {% endif %}
     <form action="{{ url_for('auth.logout') }}" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

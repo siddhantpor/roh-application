@@ -446,3 +446,14 @@ def get_members():
         ''').fetchall()
     return [dict(zip(('user_id', 'name', 'email', 'is_admin', 'approved', 'pending', 'auth0_sub'), row))
             for row in rows]
+
+
+def set_membership(user_id, approved):
+    # Keep the account and its volunteer history. Admins cannot be disabled here.
+    with _transaction() as connection:
+        cursor = connection.execute('''
+            UPDATE accounts SET approved = ?, pending = ?
+            WHERE user_id = ? AND COALESCE(is_admin, FALSE) = FALSE
+              AND auth0_sub IS NOT NULL
+        ''', [approved, False, user_id])
+        return cursor.rowcount == 1
