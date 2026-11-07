@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS accounts;
 CREATE TABLE accounts (
     user_id      INTEGER PRIMARY KEY,
     username     TEXT NOT NULL UNIQUE,
+    auth0_sub    TEXT UNIQUE,
     password     TEXT,            -- hash, filled in by whoever does auth
     email        TEXT,
     is_admin     INTEGER NOT NULL DEFAULT 0,   -- SQLite has no BOOLEAN; 0/1
@@ -34,7 +35,8 @@ CREATE TABLE events (
     event_title   TEXT NOT NULL,
     event_descrip TEXT,
     event_locat   TEXT,
-    graphic_link  TEXT,            -- Cloudinary URL, later
+    graphic_link  TEXT,            -- Cloudinary HTTPS delivery URL
+    graphic_public_id TEXT,        -- Cloudinary identifier for replacement/deletion
     checkin_code  TEXT,            -- NULL until an admin generates it
     checkout_code TEXT             -- NULL until an admin generates it
 );

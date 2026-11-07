@@ -6,15 +6,15 @@
   </head>
   <body>
     {% include 'header.html' %}
-    <h1 class="header text-center">Hello Student!</h1> <!-- TODO: Replace `Student` w/ user's first name. -->
+    <h1 class="header text-center">Hello {{ current_user.display_name }}!</h1> <!-- TODO: Replace `Student` w/ user's first name. -->
 
     <div class="button-row">
-      <a href="#" class="button button-shadow home-button">My Hours</a> <!-- TODO: Update href. -->
+      <a href="/member/hours" class="button button-shadow home-button">My Hours</a> <!-- TODO: Update href. -->
     </div>
 
     <p class="caption">Your Upcoming Events</p>
 
-    {% for event in upcoming_events %}
+    {% for event in registered_events %}
       <div class="event-card">
         <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-green">View Details</a>
         <p class="text-gray">{{ event.event_date }}, {{ event.start_time }}-{{ event.end_time }}</p>

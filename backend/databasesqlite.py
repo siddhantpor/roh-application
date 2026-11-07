@@ -7,17 +7,18 @@
 # One function per query, dicts out.
 #-----------------------------------------------------------------------
 
-import os
 import sqlite3
 import contextlib
 import datetime
+from flask import current_app
 
 #-----------------------------------------------------------------------
 
-# Path is relative to this file, not the working directory, so it
-# works whether you run from backend/ or the repo root.
-_DATABASE_URL = 'file:' + os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), 'roh.sqlite')
+def _connect(readonly=False):
+    uri = 'file:' + current_app.config['SQLITE_PATH'] + ('?mode=ro' if readonly else '?mode=rw')
+    connection = sqlite3.connect(uri, uri=True, isolation_level=None)
+    connection.execute('PRAGMA foreign_keys = ON')
+    return connection
 
 #-----------------------------------------------------------------------
 # Accounts
@@ -26,8 +27,7 @@ _DATABASE_URL = 'file:' + os.path.join(
 def get_user_id(username):
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=ro',
-        isolation_level=None, uri=True)) as connection:
+        _connect(readonly=True)) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -45,8 +45,7 @@ def get_user_id(username):
 def is_admin(username):
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=ro',
-        isolation_level=None, uri=True)) as connection:
+        _connect(readonly=True)) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -66,15 +65,15 @@ def is_admin(username):
 def get_event(event_id):
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=ro',
-        isolation_level=None, uri=True)) as connection:
+        _connect(readonly=True)) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
             query_str = '''
                 SELECT event_id, event_date, start_time, end_time,
                        event_title, event_descrip, event_locat,
-                       graphic_link, checkin_code, checkout_code
+                       graphic_link, checkin_code, checkout_code, graphic_public_id,
+                       (SELECT COUNT(*) FROM rsvps r WHERE r.event_id = events.event_id AND r.accepted = 1)
                 FROM events WHERE event_id = ?
                 '''
             cursor.execute(query_str, [event_id])
@@ -86,7 +85,8 @@ def get_event(event_id):
                 'start_time': row[2], 'end_time': row[3],
                 'event_title': row[4], 'event_descrip': row[5],
                 'event_locat': row[6], 'graphic_link': row[7],
-                'checkin_code': row[8], 'checkout_code': row[9]}
+                'checkin_code': row[8], 'checkout_code': row[9],
+                'graphic_public_id': row[10], 'attending': row[11]}
             return event
 
 #-----------------------------------------------------------------------
@@ -94,8 +94,7 @@ def get_event(event_id):
 def set_event_codes(event_id, checkin_code, checkout_code):
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=rw',
-        isolation_level=None, uri=True)) as connection:
+        _connect()) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -116,8 +115,7 @@ def set_event_codes(event_id, checkin_code, checkout_code):
 def get_rsvp(user_id, event_id):
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=ro',
-        isolation_level=None, uri=True)) as connection:
+        _connect(readonly=True)) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -167,8 +165,7 @@ def add_checkout(user_id, event_id, time):
 def _get_record(table_name, user_id, event_id):
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=ro',
-        isolation_level=None, uri=True)) as connection:
+        _connect(readonly=True)) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -188,8 +185,7 @@ def _get_record(table_name, user_id, event_id):
 def _add_record(table_name, user_id, event_id, time):
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=rw',
-        isolation_level=None, uri=True)) as connection:
+        _connect()) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -212,8 +208,7 @@ def get_attendance(event_id):
     attendance = []
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=ro',
-        isolation_level=None, uri=True)) as connection:
+        _connect(readonly=True)) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -251,8 +246,7 @@ def update_attendance(user_id, event_id, checkin_time, checkout_time,
     # "no record", so an admin can clear a bad checkout.
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=rw',
-        isolation_level=None, uri=True)) as connection:
+        _connect()) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -285,8 +279,7 @@ def get_hours(user_id, start_date, end_date):
     hours = []
 
     with contextlib.closing(
-        sqlite3.connect(_DATABASE_URL + '?mode=ro',
-        isolation_level=None, uri=True)) as connection:
+        _connect(readonly=True)) as connection:
 
         with contextlib.closing(connection.cursor()) as cursor:
 
@@ -333,75 +326,123 @@ def _hours_between(checkin_time, checkout_time):
 
 #-----------------------------------------------------------------------
 
-# For testing (python databasesqlite.py). Assumes roh.sqlite was just
-# built from roh.sql. Leaves the database as it found it.
+@contextlib.contextmanager
+def _transaction():
+    with contextlib.closing(_connect()) as connection:
+        connection.execute('BEGIN')
+        with connection:
+            yield connection
 
-def _test():
-    print('----------------------------------')
-    print('Testing get_user_id() / is_admin()')
-    print('----------------------------------')
-    print(get_user_id('alice'), get_user_id('nobody'))
-    print(is_admin('tdouglas'), is_admin('alice'))
-    print()
+# Integrated account/event operations. Both adapters expose the same interface.
+def get_account(user_id):
+    with _transaction() as connection:
+        row = connection.execute('''
+            SELECT user_id, username, email, display_name, is_admin, auth0_sub, approved, pending
+            FROM accounts WHERE user_id = ?
+        ''', [user_id]).fetchone()
+    if row is None:
+        return None
+    return dict(zip(('user_id', 'username', 'email', 'display_name', 'is_admin',
+                     'auth0_sub', 'approved', 'pending'), row),
+                is_admin=bool(row[4]), approved=bool(row[6]), pending=bool(row[7]))
 
-    print('----------------------------------')
-    print('Testing get_event()')
-    print('----------------------------------')
-    print(get_event(1))
-    print(get_event(2)['checkin_code'])   # None: no codes yet
-    print(get_event(99))                  # None: no such event
-    print()
 
-    print('----------------------------------')
-    print('Testing get_rsvp()')
-    print('----------------------------------')
-    print(get_rsvp(2, 1), get_rsvp(4, 1), get_rsvp(2, 2))  # True False None
-    print()
+def link_auth0_user(subject, email, name, bootstrap_admin=False):
+    with _transaction() as connection:
+        row = connection.execute('SELECT user_id FROM accounts WHERE auth0_sub = ?', [subject]).fetchone()
+        if row:
+            user_id = row[0]
+        else:
+            matches = connection.execute(
+                'SELECT user_id, auth0_sub FROM accounts WHERE lower(email) = ?', [email]).fetchall()
+            if len(matches) > 1 or (matches and matches[0][1] is not None):
+                raise ValueError('Email is ambiguous or already linked')
+            if matches:
+                user_id = matches[0][0]
+                connection.execute('''
+                    UPDATE accounts SET auth0_sub = ?, display_name = ?,
+                        is_admin = CASE WHEN ? THEN ? ELSE is_admin END
+                    WHERE user_id = ? AND auth0_sub IS NULL
+                ''', [subject, name, bootstrap_admin, True, user_id])
+            else:
+                user_id = connection.execute('''
+                    INSERT INTO accounts (username, password, email, display_name, is_admin,
+                                          approved, pending, auth0_sub)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING user_id
+                ''', [subject, '', email, name, bootstrap_admin, bootstrap_admin, not bootstrap_admin, subject]).fetchone()[0]
+    return get_account(user_id)
 
-    print('----------------------------------')
-    print('Testing get_checkin() / get_checkout()')
-    print('----------------------------------')
-    print(get_checkin(2, 1))   # alice's checkin
-    print(get_checkout(3, 1))  # bob has no checkout: None
-    print()
 
-    print('----------------------------------')
-    print('Testing add_checkin() (duplicate should fail)')
-    print('----------------------------------')
-    print(add_checkin(4, 1, '2026-11-07T14:20:00'))  # True
-    print(add_checkin(4, 1, '2026-11-07T14:21:00'))  # False (duplicate)
-    print()
+def set_admin(email, enabled):
+    with _transaction() as connection:
+        matches = connection.execute(
+            'SELECT user_id FROM accounts WHERE lower(email) = ? AND auth0_sub IS NOT NULL',
+            [email]).fetchall()
+        if len(matches) != 1:
+            return False
+        connection.execute('UPDATE accounts SET is_admin = ? WHERE user_id = ?', [enabled, matches[0][0]])
+    return True
 
-    print('----------------------------------')
-    print('Testing get_attendance()')
-    print('----------------------------------')
-    for record in get_attendance(1):
-        print(record)
-    print()
 
-    print('----------------------------------')
-    print('Testing update_attendance() then get_hours()')
-    print('----------------------------------')
-    print(get_hours(2, '2026-01-01', '2026-12-31'))   # [] : not approved yet
-    update_attendance(2, 1, '2026-11-07T14:00:00', '2026-11-07T17:00:00',
-        True)
-    print(get_hours(2, '2026-01-01', '2026-12-31'))   # 3.0 hours
-    print(get_hours(2, '2026-12-01', '2026-12-31'))   # [] : out of range
-    print()
+def update_event(event_id, event_date, start_time, end_time, event_title, event_descrip,
+                 event_locat, graphic_link, graphic_public_id):
+    with _transaction() as connection:
+        connection.execute('''
+            UPDATE events SET event_date = ?, start_time = ?, end_time = ?,
+                event_title = ?, event_descrip = ?, event_locat = ?,
+                graphic_link = ?, graphic_public_id = ? WHERE event_id = ?
+        ''', [event_date, start_time, end_time, event_title, event_descrip, event_locat,
+              graphic_link, graphic_public_id, event_id])
 
-    print('----------------------------------')
-    print('Testing set_event_codes()')
-    print('----------------------------------')
-    print(set_event_codes(2, 'AAA111', 'BBB222'))   # True
-    print(get_event(2)['checkin_code'])             # AAA111
-    print(set_event_codes(99, 'x', 'y'))            # False
-    print()
 
-    # Put things back the way roh.sql left them.
-    update_attendance(2, 1, '2026-11-07T14:02:00', '2026-11-07T16:58:00',
-        False)
-    update_attendance(4, 1, None, None, False)
-    set_event_codes(2, None, None)
+def add_event(event_date, start_time, end_time, event_title, event_descrip, event_locat,
+                 graphic_link=None, graphic_public_id=None):
+    with _transaction() as connection:
+        return connection.execute('''
+            INSERT INTO events (event_date, start_time, end_time, event_title,
+                                event_descrip, event_locat, graphic_link, graphic_public_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING event_id
+        ''', [event_date, start_time, end_time, event_title, event_descrip, event_locat,
+              graphic_link, graphic_public_id]).fetchone()[0]
 
-if __name__ == '__main__':
-    _test()
+
+def get_events():
+    with _transaction() as connection:
+        ids = connection.execute('SELECT event_id FROM events ORDER BY event_date, start_time').fetchall()
+    return [get_event(row[0]) for row in ids]
+
+
+def set_rsvp(user_id, event_id, accepted):
+    with _transaction() as connection:
+        connection.execute('''INSERT INTO rsvps (user_id, event_id, accepted, time)
+            VALUES (?, ?, ?, ?) ON CONFLICT(user_id, event_id)
+            DO UPDATE SET accepted=excluded.accepted, time=excluded.time''',
+            [user_id, event_id, accepted, datetime.datetime.now(datetime.timezone.utc).isoformat()])
+
+
+def get_attendees(event_id):
+    with _transaction() as connection:
+        rows = connection.execute('''SELECT a.display_name, r.accepted
+            FROM accounts a LEFT JOIN rsvps r ON a.user_id = r.user_id AND r.event_id = ?
+            WHERE a.is_admin = 0 ORDER BY a.display_name''', [event_id]).fetchall()
+    return [{'name': row[0], 'status': 'Pending' if row[1] is None else
+             ('Going' if row[1] else 'Not Going')} for row in rows]
+
+
+def migrate():
+    with _transaction() as connection:
+        for table, column in [('accounts', 'auth0_sub'), ('events', 'graphic_public_id')]:
+            columns = {row[1] for row in connection.execute(f'PRAGMA table_info({table})')}
+            if column not in columns:
+                connection.execute(f'ALTER TABLE {table} ADD COLUMN {column} TEXT')
+        connection.execute('CREATE UNIQUE INDEX IF NOT EXISTS accounts_auth0_sub_unique ON accounts(auth0_sub)')
+
+
+def get_members():
+    with _transaction() as connection:
+        rows = connection.execute('''
+            SELECT user_id, display_name, email, is_admin, approved, pending, auth0_sub
+            FROM accounts ORDER BY pending DESC, display_name
+        ''').fetchall()
+    return [dict(zip(('user_id', 'name', 'email', 'is_admin', 'approved', 'pending', 'auth0_sub'), row))
+            for row in rows]

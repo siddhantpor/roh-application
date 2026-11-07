@@ -1,19 +1,21 @@
-#!/usr/bin/env python
+"""Select the existing SQL adapter from the shared Flask configuration."""
+import atexit
+from flask import current_app
 
-#-----------------------------------------------------------------------
-# database.py
-# Picks the database backend:
-#   DATABASE_URL set (in .env)  -> databasepostgresql (Neon)
-#   DATABASE_URL not set        -> databasesqlite (local roh.sqlite)
-# Routes just do "import database".
-#-----------------------------------------------------------------------
 
-import os
-import dotenv
+def init_app(app):
+    if app.config['DATABASE_URL']:
+        from psycopg_pool import ConnectionPool
+        pool = ConnectionPool(app.config['DATABASE_URL'], open=False)
+        app.extensions['database_pool'] = pool
+        atexit.register(pool.close)
 
-dotenv.load_dotenv()
 
-if os.environ.get('DATABASE_URL'):
-    from databasepostgresql import *
-else:
-    from databasesqlite import *
+def __getattr__(name):
+    if name.startswith('_'):
+        raise AttributeError(name)
+    if current_app.config['DATABASE_URL']:
+        import databasepostgresql as adapter
+    else:
+        import databasesqlite as adapter
+    return getattr(adapter, name)

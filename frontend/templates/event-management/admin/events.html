@@ -6,11 +6,11 @@
   </head>
   <body>
     {% include 'header.html' %}
-    <h1 class="header text-center">Hello Admin!</h1> <!-- TODO: Replace `Admin` w/ user's first name. -->
+    <h1 class="header text-center">Hello {{ current_user.display_name }}!</h1> <!-- TODO: Replace `Admin` w/ user's first name. -->
 
     <div class="button-row">
       <a href="/admin/events/create" class="button button-shadow home-button">Create an Event</a>
-      <a href="#" class="button button-shadow home-button">Manage Members</a> <!-- TODO: Update href. -->
+      <a href="/admin/members" class="button button-shadow home-button">View Volunteers</a> <!-- TODO: Update href. -->
     </div>
 
     <p class="caption">Your Upcoming Events</p>
@@ -18,10 +18,10 @@
     {% for event in admin_events %}
       <div class="event-card">
         <!-- TODO: Update href. -->
-        <a href="#" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
+        <a href="/admin/events/{{ event.event_id }}/edit" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
         <!-- TODO: Button to lock/unlock codes. -->
         <p class="text-gray">{{ event.event_date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-        <p class="header-bold">{{ event.event_title }}</p>
+        <p class="header-bold"><a href="/admin/events/{{ event.event_id }}">{{ event.event_title }}</a></p>
         <p class="subtext text-dark-gray">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
         <div class="code-card">
           <p class="label">Private Check-in Code</p>

@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Volunteers · Rays of Hope</title><link rel="stylesheet" href="/static/css/style.css"></head>
+<body>
+  {% include 'header.html' %}
+  <h1>Volunteers</h1>
+  <table>
+    <thead><tr><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+    <tbody>{% for member in members %}
+      <tr><td>{{ member.name }}</td><td>{{ member.email }}</td><td>{{ 'Admin' if member.is_admin else 'Volunteer' }}</td></tr>
+    {% endfor %}</tbody>
+  </table>
+  {% include 'footer.html' %}
+</body>
+</html>

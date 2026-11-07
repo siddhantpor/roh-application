@@ -1,59 +1,46 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-    <title>Rays of Hope</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ 'Edit' if event else 'Create' }} Event · Rays of Hope</title>
     <link rel="stylesheet" href="/static/css/style.css">
   </head>
   <body>
     {% include 'header.html' %}
     <div class="header-row">
-      <a href="/admin/events" class="button button-shadow square-button">&lt;</a>
-      <h1 class="header-bold">Create an Event</h1>
+      <a href="{{ url_for('events.admin_events') }}" class="button button-shadow square-button">&lt;</a>
+      <h1 class="header-bold">{{ 'Edit' if event else 'Create' }} an Event</h1>
     </div>
-
-    <!-- TODO: Form submission logic. Also, integrate w/ Cindy's database work! -->
-    <form action="/admin/events/create" method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label class="create-event-card">
-        <strong>Event Title <span class="text-red">*</span></strong>
-        <input type="text" name="title" placeholder="e.g., Leadership Workshop" required>
+        <strong>Event Title *</strong>
+        <input type="text" name="title" value="{{ values.get('title', '') }}" maxlength="200" required>
       </label>
-
       <label class="create-event-card">
-        <strong>Date <span class="text-red">*</span></strong>
-        <input type="date" name="date" required>
+        <strong>Date *</strong>
+        <input type="date" name="date" value="{{ values.get('date', '') }}" required>
       </label>
-
       <div class="create-event-card-row">
         <label class="create-event-card">
-          <strong>Start Time <span class="text-red">*</span></strong>
-          <input type="time" name="start_time" required>
+          <strong>Start Time *</strong>
+          <input type="time" name="start_time" value="{{ values.get('start_time', '') }}" required>
         </label>
-
         <label class="create-event-card">
-          <strong>End Time <span class="text-red">*</span></strong>
-          <input type="time" name="end_time" required>
+          <strong>End Time *</strong>
+          <input type="time" name="end_time" value="{{ values.get('end_time', '') }}" required>
         </label>
       </div>
-
       <label class="create-event-card">
-        <strong>Location <span class="text-red">*</span></strong>
-        <input type="text" name="location" placeholder="e.g., Somerset, NJ" required>
+        <strong>Location *</strong>
+        <input type="text" name="location" value="{{ values.get('location', '') }}" maxlength="300" required>
       </label>
-
       <label class="create-event-card">
         <strong>Description</strong>
-        <textarea name="description" placeholder="Tell volunteers about this event (what to expect, the dress code, etc.)"></textarea>
+        <textarea name="description" maxlength="10000">{{ values.get('description', '') or '' }}</textarea>
       </label>
-
-      <!-- TODO: Image upload logic. Also, integrate w/ Cloudinary! -->
-      <label class="create-event-card">
-        <strong>Event Flyer</strong>
-        <input type="file" name="flyer" accept="image/*">
-      </label>
-
-      <button type="submit" class="button create-event-button button-yellow">Create Event</button>
+      <button type="submit" class="button create-event-button button-yellow">Save Event</button>
     </form>
-
     {% include 'footer.html' %}
   </body>
 </html>

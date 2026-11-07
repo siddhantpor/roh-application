@@ -1,170 +1,164 @@
-<<<<<<< HEAD
-#!/usr/bin/env python
-
-#-----------------------------------------------------------------------
-# auth.py
-# STUB until we pick Auth0 or home-grown auth. Same interface as the
-# real thing will have:
-#     init(app)          registers the auth routes
-#     authenticate()     call first in every protected route
-#     get_username()     logged-in username
-# Login is fake: /login?as=alice puts 'alice' in the session.
-#-----------------------------------------------------------------------
+"""Auth0 proves identity; database flags control membership and admin access."""
+import time
+from urllib.parse import urlencode, urlsplit
 
 import flask
+from authlib.integrations.flask_client import OAuth
+from authlib.integrations.base_client.errors import OAuthError
+from requests.exceptions import RequestException
+from joserfc.errors import JoseError
 
-#-----------------------------------------------------------------------
+import database
 
-def init(app):
-
-    app.add_url_rule('/login', 'login', login, methods=['GET'])
-    app.add_url_rule('/logout', 'logout', logout, methods=['GET'])
-
-#-----------------------------------------------------------------------
-
-def login():
-
-    # No password: pick a user from the accounts table.
-    username = flask.request.args.get('as')
-    if username is None or username.strip() == '':
-        html_code = ('<p>Stub login. Pick a user: '
-            '<a href="/login?as=alice">alice</a>, '
-            '<a href="/login?as=bob">bob</a>, '
-            '<a href="/login?as=carol">carol</a>, '
-            '<a href="/login?as=tdouglas">tdouglas (admin)</a></p>')
-        response = flask.make_response(html_code)
-        return response
-
-    flask.session['username'] = username.strip()
-    original_url = flask.session.get('original_url', '/')
-    response = flask.redirect(original_url)
-    return response
-
-#-----------------------------------------------------------------------
-
-def logout():
-
-    flask.session.clear()
-    html_code = '<p>Logged out. <a href="/login">Log in</a></p>'
-    response = flask.make_response(html_code)
-    return response
-
-#-----------------------------------------------------------------------
-
-def get_username():
-
-    return flask.session.get('username')
-
-#-----------------------------------------------------------------------
-
-def authenticate():
-
-    username = flask.session.get('username')
-    if username is None:
-        response = flask.redirect(flask.url_for('login'))
-        flask.session['original_url'] = flask.request.url
-        flask.abort(response)
-=======
-import os
-import urllib.parse
-import flask
-import dotenv
-import authlib.integrations.flask_client
-
-dotenv.load_dotenv()
-AUTH0_DOMAIN = os.environ["AUTH0_DOMAIN"]
-AUTH0_CLIENT_ID = os.environ["AUTH0_CLIENT_ID"]
-AUTH0_CLIENT_SECRET = os.environ["AUTH0_CLIENT_SECRET"]
-ADMIN_EMAILS = {
-    e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()
-}
-
-oauth = authlib.integrations.flask_client.OAuth()
+bp = flask.Blueprint('auth', __name__)
 
 
-def init(app):
-    oauth.init_app(app)
+def init_app(app):
+    oauth = OAuth(app)
     oauth.register(
-        "auth0",
-        client_id=AUTH0_CLIENT_ID,
-        client_secret=AUTH0_CLIENT_SECRET,
-        client_kwargs={"scope": "openid profile email"},
-        server_metadata_url=f"https://{AUTH0_DOMAIN}/.well-known/openid-configuration",
+        'auth0', client_id=app.config['AUTH0_CLIENT_ID'],
+        client_secret=app.config['AUTH0_CLIENT_SECRET'],
+        client_kwargs={'scope': 'openid profile email'},
+        server_metadata_url=f"https://{app.config['AUTH0_DOMAIN']}/.well-known/openid-configuration",
     )
+    app.extensions['auth0_client'] = oauth.auth0
+    app.register_blueprint(bp)
 
-    app.add_url_rule("/login", "login", login)
-    app.add_url_rule("/signup", "signup", signup)
-    app.add_url_rule("/callback", "callback", callback, methods=["GET", "POST"])
-    app.add_url_rule("/logout", "logout", logout)
-    app.add_url_rule("/loggedout", "loggedout", loggedout)
-
-
-def _redirect_to_auth0(**params):
-    next_url = flask.request.args.get("next", "/")
-    # Only allow redirects back into this app
-    if not next_url.startswith("/") or next_url.startswith("//"):
-        next_url = "/"
-    flask.session["next"] = next_url
-    redirect_uri = flask.url_for("callback", _external=True)
-    return oauth.auth0.authorize_redirect(redirect_uri=redirect_uri, **params)
+    @app.context_processor
+    def auth_context():
+        user = get_user()
+        return {'current_user': user, 'current_user_is_admin': bool(user and user['is_admin']),
+                'current_user_has_access': bool(user and (user['is_admin'] or user['approved']))}
 
 
+def _client():
+    config = flask.current_app.config
+    if not all(config[key] for key in ('AUTH0_DOMAIN', 'AUTH0_CLIENT_ID', 'AUTH0_CLIENT_SECRET')):
+        flask.abort(503, 'Login is not configured. Please contact the site administrator.')
+    return flask.current_app.extensions['auth0_client']
+
+
+def _safe_next(value):
+    # Backslashes/control characters can be interpreted as external redirects by browsers.
+    if not value or not value.startswith('/') or value.startswith('//'):
+        return '/'
+    if '\\' in value or any(ord(char) < 32 for char in value):
+        return '/'
+    parsed = urlsplit(value)
+    return value if not parsed.netloc and not parsed.scheme else '/'
+
+
+def _start_login(**params):
+    # Flask prints 127.0.0.1 when starting locally, but Auth0 allows localhost.
+    # Switch hosts before saving OAuth state so the callback receives its cookie.
+    url = urlsplit(flask.request.url)
+    if url.hostname == '127.0.0.1':
+        host = 'localhost' + (f':{url.port}' if url.port else '')
+        return flask.redirect(url._replace(netloc=host).geturl())
+    client = _client()
+    flask.session['next'] = _safe_next(flask.request.args.get('next'))
+    try:
+        return client.authorize_redirect(flask.url_for('auth.callback', _external=True), **params)
+    except (OAuthError, RequestException, JoseError):
+        flask.abort(502, 'The login service is unavailable. Please try again.')
+
+
+@bp.get('/login')
 def login():
-    return _redirect_to_auth0()
+    return _start_login()
 
 
+@bp.get('/signup')
 def signup():
-    return _redirect_to_auth0(screen_hint="signup")
+    return _start_login(screen_hint='signup')
 
 
+@bp.get('/callback')
 def callback():
-    token = oauth.auth0.authorize_access_token()
-    userinfo = token["userinfo"]
-    flask.session["user"] = {
-        "id": userinfo["sub"],
-        "email": userinfo.get("email", "").lower(),
-        "name": userinfo.get("name", ""),
-    }
-    # TODO: Create/look up the volunteer in the database (keyed by user email)
-    return flask.redirect(flask.session.pop("next", "/"))
-
-
-def logout():
-    flask.session.clear()
-    return flask.redirect(
-        f"https://{AUTH0_DOMAIN}/v2/logout?"
-        + urllib.parse.urlencode(
-            {
-                "returnTo": flask.url_for("loggedout", _external=True),
-                "client_id": AUTH0_CLIENT_ID,
-            }
+    try:
+        # Authlib validates OAuth state, OIDC nonce, issuer, signature and expiry.
+        token = _client().authorize_access_token()
+        userinfo = token.get('userinfo', {})
+        if not userinfo.get('sub') or not userinfo.get('email') or userinfo.get('email_verified') is not True:
+            flask.session.clear()
+            flask.abort(403, 'Verify your email address with Auth0 before logging in.')
+        user = database.link_auth0_user(
+            userinfo['sub'], userinfo['email'].strip().lower(),
+            userinfo.get('name') or userinfo['email'],
+            userinfo['email'].strip().lower() in flask.current_app.config['ADMIN_EMAILS'],
         )
-    )
+    except (OAuthError, RequestException, JoseError):
+        flask.session.clear()
+        flask.abort(400, 'Login failed or expired. Please try logging in again.')
+    except ValueError:
+        flask.session.clear()
+        flask.abort(403, 'This email cannot be linked automatically. Please contact an administrator.')
+
+    next_url = _safe_next(flask.session.get('next'))
+    flask.session.clear()
+    flask.session.permanent = True
+    lifetime = flask.current_app.permanent_session_lifetime.total_seconds()
+    flask.session.update(user_id=user['user_id'], auth0_sub=userinfo['sub'], expires_at=time.time() + lifetime)
+    return flask.redirect(next_url)
 
 
+@bp.post('/logout')
+def logout():
+    _client()
+    flask.session.clear()
+    return flask.redirect(f"https://{flask.current_app.config['AUTH0_DOMAIN']}/v2/logout?" + urlencode({
+        'returnTo': flask.url_for('auth.loggedout', _external=True),
+        'client_id': flask.current_app.config['AUTH0_CLIENT_ID'],
+    }))
+
+
+@bp.get('/loggedout')
 def loggedout():
-    return flask.render_template("loggedout.html")
+    return flask.render_template('loggedout.html')
 
 
 def get_user():
-    return flask.session.get("user")
+    if 'current_user' not in flask.g:
+        flask.g.current_user = None
+        user_id = flask.session.get('user_id')
+        if user_id is not None:
+            if flask.session.get('expires_at', 0) <= time.time():
+                flask.session.clear()
+                flask.flash('Your session expired. Please log in again.')
+            else:
+                user = database.get_account(user_id)
+                if user and user['auth0_sub'] and user['auth0_sub'] == flask.session.get('auth0_sub'):
+                    flask.g.current_user = user
+                else:
+                    flask.session.clear()
+    return flask.g.current_user
+
+
+def get_username():
+    user = get_user()
+    return user['username'] if user else None
 
 
 def is_admin():
     user = get_user()
-    return user is not None and user["email"] in ADMIN_EMAILS
+    return bool(user and user['is_admin'])
 
 
-# Do not return unless the user is logged in
 def authenticate():
     if get_user() is None:
-        next_url = flask.request.full_path.rstrip("?")
-        flask.abort(flask.redirect(flask.url_for("login", next=next_url)))
+        next_url = flask.request.full_path.rstrip('?') if flask.request.method == 'GET' else '/'
+        flask.abort(flask.redirect(flask.url_for('auth.login', next=next_url)))
 
 
-# Do not return unless the user is a logged-in admin
 def authenticate_admin():
     authenticate()
     if not is_admin():
-        flask.abort(403)
->>>>>>> chinmaya/auth
+        flask.abort(403, 'Administrator access is required.')
+
+
+def protect_request():
+    """Shared policy for the event and check-in route groups."""
+    if flask.request.path.startswith('/admin/'):
+        authenticate_admin()
+    else:
+        authenticate()

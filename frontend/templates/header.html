@@ -1,4 +1,22 @@
 <header>
-  Rays of Hope
-  {% if session.user %}<a href="/logout">Log out</a>{% endif %}
+  <a href="{{ url_for('index') }}">Rays of Hope</a>
+  {% if current_user %}
+    <span>Logged in as {{ current_user.display_name }}</span>
+    <a href="{{ url_for('events.member_events') }}">Events</a>
+    <a href="{{ url_for('events.member_hours') }}">My Hours</a>
+    {% if current_user_is_admin %}
+      <a href="{{ url_for('events.admin_events') }}">Admin Events</a>
+      <a href="{{ url_for('events.members') }}">Volunteers</a>
+    {% endif %}
+    <form action="{{ url_for('auth.logout') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit">Log out</button>
+    </form>
+  {% else %}
+    <a href="{{ url_for('auth.login') }}">Log in</a>
+    <a href="{{ url_for('auth.signup') }}">Sign up</a>
+  {% endif %}
 </header>
+{% for message in get_flashed_messages() %}
+  <p role="status">{{ message }}</p>
+{% endfor %}

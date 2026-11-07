@@ -1,105 +1,343 @@
-#!/usr/bin/env python
+"""Integrated tests: python -m unittest discover -s backend -p 'test_*.py' -v.
 
-#-----------------------------------------------------------------------
-# test_checkin.py
-# Route tests with Flask's test client (no server). Rebuilds
-# roh.sqlite from roh.sql first.
-#
-#     cd backend
-#     python test_checkin.py
-#-----------------------------------------------------------------------
-
-import os
+Uses a temporary SQLite database and mocked external SDK responses. Never resets
+local/Neon data and never provides a development authentication bypass.
+"""
+import io
+from contextlib import closing
+import re
 import sqlite3
-import runcheckin
+import tempfile
+import time
+import unittest
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+from authlib.integrations.base_client.errors import OAuthError
+
+from app import create_app
 import database
 
-#-----------------------------------------------------------------------
 
-def rebuild_db():
-    # SQLite: rebuild from roh.sql. Postgres (DATABASE_URL set): re-run
-    # seed_neon.sql, which only touches the demo rows.
-    if os.environ.get('DATABASE_URL'):
-        import psycopg
-        with psycopg.connect(os.environ['DATABASE_URL']) as connection:
-            connection.execute(open('seed_neon.sql').read())
-    else:
-        with sqlite3.connect('roh.sqlite') as connection:
-            connection.executescript(open('roh.sql').read())
+class IntegratedAppTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.app = create_app({
+            'TESTING': True, 'SECRET_KEY': 'test-only-key', 'DATABASE_URL': '',
+            'SQLITE_PATH': str(Path(self.temp.name) / 'test.sqlite'),
+            'AUTH0_DOMAIN': 'test.auth0.com', 'AUTH0_CLIENT_ID': 'test-client',
+            'AUTH0_CLIENT_SECRET': 'test-secret', 'ADMIN_EMAILS': {'admin@example.com'},
+            'CLOUDINARY_CLOUD_NAME': 'test', 'CLOUDINARY_API_KEY': 'test',
+            'CLOUDINARY_API_SECRET': 'test', 'WTF_CSRF_ENABLED': True,
+        })
+        self.client = self.app.test_client()
+        self.auth0 = Mock()
+        self.app.extensions['auth0_client'] = self.auth0
+        result = self.app.test_cli_runner().invoke(args=['init-db'])
+        self.assertEqual(result.exit_code, 0, result.output)
 
-def login(client, username):
-    client.get('/login?as=' + username)
+    def login(self, username='alice', email=None, verified=True, subject=None):
+        self.auth0.authorize_access_token.return_value = {'userinfo': {
+            'sub': subject or 'auth0|' + username, 'email': email or username + '@example.com',
+            'email_verified': verified, 'name': username.title(),
+        }}
+        return self.client.get('/callback')
 
-def event_id_of(title):
-    # ids differ between SQLite (always 1, 2) and a reseeded Postgres.
-    for event_id in range(1, 200):
-        event = database.get_event(event_id)
-        if event is not None and event['event_title'] == title:
-            return event_id
-    raise Exception('seed event not found: ' + title)
+    def csrf(self, path='/'):
+        response = self.client.get(path, follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
+        return re.search(rb'name="csrf_token" value="([^"]+)"', response.data)[1].decode()
 
-def check(label, got, expected):
-    status = 'ok  ' if got == expected else 'FAIL'
-    print(f'{status} {label}: {got!r}')
+    def post(self, path, data=None):
+        payload = {'csrf_token': self.csrf()}
+        payload.update(data or {})
+        response = self.client.post(path, data=payload)
+        self.addCleanup(response.request.environ['wsgi.input'].close)
+        self.addCleanup(response.close)
+        return response
 
-#-----------------------------------------------------------------------
+    def event(self, event_id=1):
+        with self.app.app_context():
+            return database.get_event(event_id)
 
-def main():
-    rebuild_db()
-    app = runcheckin.app
-    app.config['WTF_CSRF_ENABLED'] = False   # not testing CSRF here
-    client = app.test_client()
-    park = event_id_of('Park Cleanup')
-    food = event_id_of('Food Bank Sorting')
-    alice = database.get_user_id('alice')
-    bob = database.get_user_id('bob')
-    carol = database.get_user_id('carol')
+    def form(self, **changes):
+        data = dict(title='Community Day', date='2026-12-01', start_time='09:00',
+                    end_time='12:00', location='Princeton', description='Join us')
+        data.update(changes)
+        return data
 
-    # Logged out -> redirected to login
-    r = client.get(f'/member/events/{park}/checkin')
-    check('logged out redirects', r.headers['Location'], '/login')
 
-    # Member: wrong code, right code, duplicate, checkout
-    login(client, 'carol')
-    r = client.post(f'/member/events/{park}/handlecheckin', data={'code': 'NOPE'})
-    check('wrong code', 'msg=' in r.headers['Location'], True)
-    r = client.post(f'/member/events/{park}/handlecheckin', data={'code': 'abc 123'})
-    check('right code (spaces, lowercase)', 'msg=' in r.headers['Location'], False)
-    r = client.post(f'/member/events/{park}/handlecheckin', data={'code': 'ABC123'})
-    check('duplicate check-in', 'already' in r.headers['Location'], True)
-    r = client.post(f'/member/events/{park}/handlecheckout', data={'code': 'XYZ789'})
-    check('checkout', 'msg=' in r.headers['Location'], False)
-    r = client.get(f'/member/events/{park}/checkin')
-    check('page shows checked out', b'Thanks for volunteering' in r.data, True)
+    def test_logged_out_routes_redirect(self):
+        for path in ('/member/events', '/admin/events', '/member/events/1/checkin'):
+            response = self.client.get(path)
+            self.assertEqual(response.status_code, 302)
+            self.assertTrue(response.location.startswith('/login?next='))
 
-    # Admin wall
-    r = client.get(f'/admin/events/{park}/hours')
-    check('member blocked from admin', b'not authorized' in r.data, True)
 
-    # Admin: approve, edit, reject
-    login(client, 'tdouglas')
-    r = client.post(f'/admin/events/{park}/handleapprove', data={'user_id': str(bob)})
-    check('approve still-checked-in refused', 'still' in r.headers['Location'], True)
-    r = client.post(f'/admin/events/{park}/hours/{alice}/handleedit', data={
-        'action': 'save', 'checkin_time': '2026-11-07T09:00',
-        'checkout_time': '2026-11-07T12:00', 'reason': 'rounded'})
-    check('edit + approve alice', 'approved' in r.headers['Location'], True)
-    check('alice hours = 3.0',
-        database.get_hours(alice, '2026-01-01', '2026-12-31')[0]['hours'], 3.0)
-    r = client.post(f'/admin/events/{park}/hours/{carol}/handleedit', data={'action': 'reject'})
-    check('reject carol', database.get_checkin(carol, park), None)
 
-    # Admin: codes
-    r = client.post(f'/admin/events/{food}/handlecodes')
-    event = database.get_event(food)
-    check('codes generated', len(event['checkin_code']), 6)
 
-    if os.environ.get('DATABASE_URL'):
-        import databasepostgresql
-        databasepostgresql._connection_pool.close()
 
-    rebuild_db()
+
+    def test_existing_account_link_and_refresh(self):
+        self.assertEqual(self.login().status_code, 302)
+        response = self.client.get('/member/events')
+        self.assertIn(b'Park Cleanup', response.data)
+        self.assertIn(b'Alice', response.data)
+        self.assertNotIn(b'Manage Events', response.data)
+        with self.app.app_context():
+            user = database.get_account(database.get_user_id('alice'))
+            self.assertEqual(user['auth0_sub'], 'auth0|alice')
+            self.assertEqual(database.get_rsvp(user['user_id'], 1), True)
+        with self.client.session_transaction() as session:
+            self.assertNotIn('access_token', session)
+            self.assertNotIn('userinfo', session)
+        self.assertEqual(self.client.get('/member/events').status_code, 200)
+
+
+
+    def test_existing_linked_account_admin_grant_uses_cli(self):
+        self.login('newcomer')
+        self.app.config['ADMIN_EMAILS'].add('newcomer@example.com')
+        self.login('newcomer')
+        self.assertEqual(self.client.get('/admin/events').status_code, 403)
+        result = self.app.test_cli_runner().invoke(args=['set-admin', 'newcomer@example.com'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(self.client.get('/admin/events').status_code, 200)
+
+    def test_login_requires_configuration_and_handles_service_failure(self):
+        from requests.exceptions import ConnectionError
+        self.app.config['AUTH0_CLIENT_SECRET'] = ''
+        self.assertEqual(self.client.get('/login').status_code, 503)
+        self.app.config['AUTH0_CLIENT_SECRET'] = 'test-secret'
+        self.auth0.authorize_redirect.side_effect = ConnectionError('offline')
+        self.assertEqual(self.client.get('/login').status_code, 502)
+
+    def test_session_requires_linked_matching_subject(self):
+        with self.client.session_transaction() as session:
+            session.update(user_id=1, expires_at=time.time()+3600)
+        self.assertEqual(self.client.get('/admin/events').status_code, 302)
+        self.login()
+        with self.client.session_transaction() as session:
+            session['auth0_sub'] = 'auth0|different'
+        self.assertEqual(self.client.get('/member/events').status_code, 302)
+
+    def test_new_signup_and_bootstrap_admin(self):
+        self.assertEqual(self.login('newcomer').status_code, 302)
+        self.assertEqual(self.client.get('/admin/events').status_code, 403)
+        self.assertEqual(self.login('admin').status_code, 302)
+        self.assertEqual(self.client.get('/admin/events').status_code, 200)
+        self.assertEqual(self.client.get('/').location, '/admin/events')
+
+    def test_unverified_and_conflicting_identity_rejected(self):
+        self.assertEqual(self.login(verified=False).status_code, 403)
+        with self.client.session_transaction() as session:
+            self.assertNotIn('user_id', session)
+        self.login()
+        self.assertEqual(self.login(subject='auth0|someone-else').status_code, 403)
+        with self.app.app_context():
+            self.assertEqual(database.get_account(2)['auth0_sub'], 'auth0|alice')
+
+    def test_duplicate_email_rejected(self):
+        with closing(sqlite3.connect(self.app.config['SQLITE_PATH'])) as connection, connection:
+            connection.execute("UPDATE accounts SET email='alice@example.com' WHERE username='bob'")
+        self.assertEqual(self.login().status_code, 403)
+
+    def test_auth_failure_clears_session(self):
+        self.login()
+        self.auth0.authorize_access_token.side_effect = OAuthError('invalid_state')
+        self.assertEqual(self.client.get('/callback').status_code, 400)
+        self.assertEqual(self.client.get('/member/events').status_code, 302)
+
+    def test_safe_login_return_and_signup(self):
+        from flask import redirect
+        self.auth0.authorize_redirect.return_value = redirect('https://test.auth0.com/authorize')
+        for destination in ('https://evil.test', '//evil.test', '/\\evil.test', '/\nevil.test'):
+            self.client.get('/login', query_string={'next': destination})
+            with self.client.session_transaction() as session:
+                self.assertEqual(session['next'], '/')
+        self.client.get('/signup', query_string={'next': '/member/hours'})
+        self.assertEqual(self.auth0.authorize_redirect.call_args.kwargs['screen_hint'], 'signup')
+        self.assertEqual(self.login().location, '/member/hours')
+
+    def test_local_ip_login_and_signup_switch_hosts_before_oauth(self):
+        from flask import redirect
+        self.auth0.authorize_redirect.return_value = redirect('https://test.auth0.com/authorize')
+        for path in ('/login', '/signup'):
+            with self.subTest(path=path):
+                self.auth0.authorize_redirect.reset_mock()
+                response = self.client.get(path, base_url='http://127.0.0.1:5001',
+                                           query_string={'next': '/member/hours'})
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(response.location, f'http://localhost:5001{path}?next=/member/hours')
+                self.auth0.authorize_redirect.assert_not_called()
+                response = self.client.get(response.location)
+                self.assertEqual(response.status_code, 302)
+                self.assertEqual(self.auth0.authorize_redirect.call_args.args[0],
+                                 'http://localhost:5001/callback')
+
+    def test_deployed_login_keeps_its_own_host(self):
+        from flask import redirect
+        self.auth0.authorize_redirect.return_value = redirect('https://test.auth0.com/authorize')
+        response = self.client.get('/signup', base_url='https://volunteer.example.org')
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.auth0.authorize_redirect.call_args.args[0],
+                         'https://volunteer.example.org/callback')
+
+    def test_expiration_and_old_stub_session(self):
+        self.login()
+        with self.client.session_transaction() as session:
+            session['expires_at'] = time.time() - 1
+        self.assertEqual(self.client.get('/member/events').status_code, 302)
+        with self.client.session_transaction() as session:
+            session.clear()
+            session['username'] = 'tdouglas'
+        self.assertEqual(self.client.get('/admin/events').status_code, 302)
+
+    def test_admin_revocation_takes_effect_during_session(self):
+        self.login('admin')
+        self.assertEqual(self.client.get('/admin/events').status_code, 200)
+        runner = self.app.test_cli_runner()
+        self.assertEqual(runner.invoke(args=['set-admin', 'admin@example.com', '--revoke']).exit_code, 0)
+        self.assertEqual(self.client.get('/admin/events').status_code, 403)
+        self.login('admin')  # bootstrap does not silently re-grant revoked access
+        self.assertEqual(self.client.get('/admin/events').status_code, 403)
+
+    def test_every_admin_route_blocks_regular_users(self):
+        self.login()
+        token = self.csrf()
+        for rule in self.app.url_map.iter_rules():
+            if not rule.rule.startswith('/admin/'):
+                continue
+            path = rule.rule.replace('<int:event_id>', '1').replace('<int:user_id>', '2')
+            for method in rule.methods & {'GET', 'POST'}:
+                with self.subTest(path=path, method=method):
+                    response = self.client.open(path, method=method, data={'csrf_token': token})
+                    self.assertEqual(response.status_code, 403)
+
+    def test_csrf_and_logout(self):
+        self.login()
+        self.assertEqual(self.client.post('/logout').status_code, 400)
+        self.assertEqual(self.client.get('/logout').status_code, 405)
+        self.assertEqual(self.client.post('/member/events/1/rsvp', data={'response': 'going'}).status_code, 400)
+        response = self.post('/logout')
+        self.assertTrue(response.location.startswith('https://test.auth0.com/v2/logout?'))
+        self.assertEqual(self.client.get('/member/events').status_code, 302)
+
+    def test_cookie_and_cache_settings(self):
+        response = self.login()
+        cookie = response.headers['Set-Cookie']
+        self.assertIn('HttpOnly', cookie)
+        self.assertIn('SameSite=Lax', cookie)
+        self.assertIn('Expires=', cookie)
+        self.assertEqual(self.client.get('/member/events').headers['Cache-Control'], 'no-store')
+
+    def test_all_page_templates_render(self):
+        self.login('tdouglas')
+        for path in ('/admin/events', '/admin/events/create', '/admin/events/1', '/admin/events/1/edit',
+                     '/admin/events/1/attendees', '/admin/members', '/admin/events/1/codes',
+                     '/admin/events/1/hours', '/admin/events/1/hours/2', '/member/events',
+                     '/member/events/1', '/member/events/1/checkin', '/member/hours', '/loggedout'):
+            with self.subTest(path=path):
+                self.assertEqual(self.client.get(path).status_code, 200)
+        self.assertEqual(self.client.get('/admin/events/999').status_code, 404)
+        self.assertEqual(self.client.get('/member/events/999').status_code, 404)
+
+    def test_event_create_edit_and_validation(self):
+        self.login('tdouglas')
+        response = self.post('/admin/events/create', self.form())
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.event(3)['event_title'], 'Community Day')
+        response = self.post('/admin/events/3/edit', self.form(title='Updated'))
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.event(3)['event_title'], 'Updated')
+        for values in (self.form(title='  '), self.form(date='bad'), self.form(end_time='08:00')):
+            self.assertEqual(self.post('/admin/events/3/edit', values).status_code, 400)
+            self.assertEqual(self.event(3)['event_title'], 'Updated')
+
+    def test_rsvp_and_attendees(self):
+        self.login('carol')
+        self.assertEqual(self.post('/member/events/2/rsvp', {'response': 'going'}).status_code, 302)
+        self.assertEqual(self.event(2)['attending'], 1)
+        self.assertIn(b'Your RSVP: Going', self.client.get('/member/events/2').data)
+        self.post('/member/events/2/rsvp', {'response': 'not_going'})
+        self.assertEqual(self.event(2)['attending'], 0)
+        self.assertEqual(self.post('/member/events/2/rsvp', {'response': 'bad'}).status_code, 400)
+        self.login('tdouglas')
+        self.assertIn(b'Carol', self.client.get('/admin/events/2/attendees').data)
+
+    def test_checkin_checkout_and_duplicate(self):
+        self.login('carol')
+        response = self.post('/member/events/1/handlecheckin', {'code': 'NOPE'})
+        self.assertIn('msg=', response.location)
+        response = self.post('/member/events/1/handlecheckin', {'code': 'abc 123'})
+        self.assertNotIn('msg=', response.location)
+        response = self.post('/member/events/1/handlecheckin', {'code': 'ABC123'})
+        self.assertIn('already', response.location)
+        self.post('/member/events/1/handlecheckout', {'code': 'XYZ789'})
+        self.assertIn(b'Thanks for volunteering', self.client.get('/member/events/1/checkin').data)
+
+    def test_checkout_requires_checkin(self):
+        self.login('carol')
+        response = self.post('/member/events/1/handlecheckout', {'code': 'XYZ789'})
+        self.assertIn('never', response.location)
+
+    def test_admin_hours_approve_edit_reject(self):
+        self.login('tdouglas')
+        response = self.post('/admin/events/1/handleapprove', {'user_id': '3'})
+        self.assertIn('still', response.location)
+        response = self.post('/admin/events/1/hours/2/handleedit', {
+            'action': 'save', 'checkin_time': '2026-11-07T09:00',
+            'checkout_time': '2026-11-07T12:00', 'reason': 'rounded',
+        })
+        self.assertIn('approved', response.location)
+        with self.app.app_context():
+            self.assertEqual(database.get_hours(2, '2026-01-01', '2026-12-31')[0]['hours'], 3.0)
+        self.login()
+        self.assertIn(b'3.00 hours', self.client.get('/member/hours').data)
+        self.login('tdouglas')
+        self.post('/admin/events/1/hours/2/handleedit', {'action': 'reject'})
+        with self.app.app_context():
+            self.assertIsNone(database.get_checkin(2, 1))
+
+    def test_approve_all_and_code_generation(self):
+        self.login('tdouglas')
+        self.post('/admin/events/1/handleapproveall')
+        with self.app.app_context():
+            self.assertTrue(database.get_checkin(2, 1)['approved'])
+            self.assertFalse(database.get_checkin(3, 1)['approved'])
+        self.post('/admin/events/2/handlecodes')
+        event = self.event(2)
+        self.assertEqual(len(event['checkin_code']), 6)
+        self.assertNotEqual(event['checkin_code'], event['checkout_code'])
+
+
+
+
+
+
+
+    def test_init_refuses_existing_db_and_migration_is_repeatable(self):
+        runner = self.app.test_cli_runner()
+        self.assertNotEqual(runner.invoke(args=['init-db']).exit_code, 0)
+        for _ in range(2):
+            self.assertEqual(runner.invoke(args=['migrate-db']).exit_code, 0)
+        self.assertEqual(self.event(1)['event_title'], 'Park Cleanup')
+
+    def test_migrate_existing_data_without_new_columns(self):
+        # Simulate the previous SQLite schema in this test database only.
+        with closing(sqlite3.connect(self.app.config['SQLITE_PATH'])) as connection, connection:
+            connection.execute('DROP INDEX IF EXISTS accounts_auth0_sub_unique')
+            # Recreate the legacy schema from the original seed text, preserving all seed rows.
+            schema = Path(__file__).with_name('roh.sql').read_text()
+            schema = schema.replace('    auth0_sub    TEXT UNIQUE,\n', '')
+            schema = schema.replace('    graphic_public_id TEXT,        -- Cloudinary identifier for replacement/deletion\n', '')
+            connection.executescript(schema)
+        result = self.app.test_cli_runner().invoke(args=['migrate-db'])
+        self.assertEqual(result.exit_code, 0, result.output)
+        self.assertEqual(self.event(1)['event_title'], 'Park Cleanup')
+        self.assertEqual(self.login().status_code, 302)
+
 
 if __name__ == '__main__':
-    main()
-
+    unittest.main()
