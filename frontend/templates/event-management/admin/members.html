@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Membership review · Rays of Hope</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  {% include 'header.html' %}
+  <main class="content">
+    <a href="{{ url_for('events') }}">Back to events</a>
+    <h1>Membership review</h1>
+    <p>Approve verified accounts to join the organization. Revoking access keeps their records.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th scope="col">Account</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
+        <tbody>
+        {% for member in members %}
+          <tr>
+            <td>{{ member.name }}<br>{{ member.email }}</td>
+            <td>
+              {% if member.is_admin %}Admin
+              {% elif not member.auth0_sub %}Hasn't logged in yet
+              {% elif member.approved %}Approved
+              {% elif member.pending %}Pending review
+              {% else %}Not approved{% endif %}
+            </td>
+            <td>
+              {% if member.auth0_sub and not member.is_admin %}
+                <form action="{{ url_for('update_membership', user_id=member.user_id) }}" method="post">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  {% if member.approved %}
+                    <button name="action" value="revoke">Revoke access</button>
+                  {% else %}
+                    <button name="action" value="approve">Approve</button>
+                    {% if member.pending %}<button name="action" value="decline">Decline</button>{% endif %}
+                  {% endif %}
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}<tr><td colspan="3">No accounts yet.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </main>
+  {% include 'footer.html' %}
+</body>
+</html>

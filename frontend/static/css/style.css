@@ -230,3 +230,32 @@ input, textarea {
   height: auto;
   padding: 8px 10px;
 }
+
+/* Authentication screens; event dashboard styling remains with the team. */
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+.site-header form { margin-left: auto; }
+.content { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+.auth-layout { max-width: 480px; }
+.auth-card p { line-height: 1.6; }
+.auth-note { color: var(--dark-gray); }
+.auth-card {
+  padding: 28px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  background: var(--white);
+}
+.welcome-logo { object-fit: contain; }
+.action-button { display: inline-block; padding: 12px 16px; border-radius: 10px; text-decoration: none; }
+.action-primary { background: #f5bf24; }
+.action-secondary { border: 1px solid var(--gray); }
+.event-poster { display: block; max-width: 100%; max-height: 600px; object-fit: contain; }
+.table-scroll { overflow-x: auto; }
+th, td { padding: 10px; text-align: left; vertical-align: top; }
+@media (max-width: 640px) {
+  .site-header { flex-wrap: wrap; }
+}
