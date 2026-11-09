@@ -12,6 +12,7 @@ import auth
 import checkin
 import databasepostgresql as database
 import posters
+import utils
 
 backend_dir = Path(__file__).resolve().parent
 dotenv.load_dotenv(backend_dir.parent / '.env')
@@ -44,6 +45,7 @@ database.init_app(app)
 CSRFProtect(app)
 auth.init(app)
 checkin.init(app)
+utils.init(app)
 
 
 @app.route('/')

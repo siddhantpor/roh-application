@@ -175,18 +175,52 @@ input, textarea {
   margin: 0;
 }
 
+.event-card .edit-button,
 .event-card .event-card-button {
-  align-self: flex-end;
-}
-
-.event-card .edit-button {
   position: absolute;
   top: 12px;
   right: 12px;
+  z-index: 1;
+}
+
+.event-card .event-card-button ~ .text-gray,
+.event-card .event-card-button ~ .header-bold {
+  padding-right: 120px;
+}
+
+.event-card .card-link {
+  text-decoration: none;
+}
+
+.event-card .card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 .code-card {
-  /* TODO */
+  padding: 10px 15px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+}
+
+.code-card .code {
+  margin-top: 3px;
+  letter-spacing: 5px;
+}
+
+.section-pill {
+  width: 144px;
+  margin: 30px auto 20px;
+  border-radius: 20px;
+  background: var(--green);
+  line-height: 28px;
+  text-align: center;
+}
+
+.icon-map {
+  margin-right: 6px;
+  vertical-align: -1px;
 }
 
 .create-event-card {

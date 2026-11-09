@@ -12,29 +12,29 @@
       <a href="#" class="button button-shadow home-button">My Hours</a> <!-- TODO: Update href. -->
     </div>
 
-    <p class="caption">Your Upcoming Events</p>
+    <p class="caption section-pill">Your Upcoming Events</p>
 
     {% for event in upcoming_events %}
       <div class="event-card">
-        <a href="/member/events/{{ event.id }}" class="button event-card-button button-green">View Details</a>
-        <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-        <p class="header-bold">{{ event.title }}</p>
-        <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+        <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-green">View Details</a>
+        <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
+        <p class="header-bold"><a href="/member/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
+        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
         <div class="code-card">
-          <p class="label">Member Check-in</p>
+          <p class="label">Student Check-in</p>
           <p class="text-dark-gray">Check-in Locked</p> <!-- TODO: Integrate this w/ Siddhant + Chinmayi's work! -->
         </div>
       </div>
     {% endfor %}
 
-    <p class="caption">Other Events</p>
+    <p class="caption section-pill">Other Events</p>
 
     {% for event in other_events %}
       <div class="event-card">
-        <a href="/member/events/{{ event.id }}" class="button event-card-button button-yellow">Register</a>
-        <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-        <p class="header-bold">{{ event.title }}</p>
-        <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+        <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-yellow">Register</a>
+        <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
+        <p class="header-bold"><a href="/member/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
+        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
       </div>
     {% endfor %}
 

@@ -9,47 +9,47 @@
     {% include 'header.html' %}
     <main class="content">
     <div class="header-row">
-      <a href="{{ url_for('events') }}" class="button button-shadow square-button">&lt;</a>
-      <h1 class="header-bold">{{ 'Edit' if event else 'Create' }} an Event</h1>
+      <a href="{{ url_for('admin_event_detail', event_id=event.event_id) if event else url_for('events') }}" class="button button-shadow square-button">&lt;</a>
+      <h1 class="header-bold">{{ 'Edit Event' if event else 'Create an Event' }}</h1>
     </div>
     <form method="post" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label class="create-event-card">
-        <strong>Event Title *</strong>
-        <input type="text" name="title" value="{{ values.get('title', '') }}" maxlength="200" required>
+        <strong>Event Title <span class="text-red">*</span></strong>
+        <input type="text" name="title" placeholder="e.g., Leadership Workshop" value="{{ values.get('title', '') }}" maxlength="200" required>
       </label>
       <label class="create-event-card">
-        <strong>Date *</strong>
+        <strong>Date <span class="text-red">*</span></strong>
         <input type="date" name="date" value="{{ values.get('date', '') }}" required>
       </label>
       <div class="create-event-card-row">
         <label class="create-event-card">
-          <strong>Start Time *</strong>
+          <strong>Start Time <span class="text-red">*</span></strong>
           <input type="time" name="start_time" value="{{ values.get('start_time', '') }}" required>
         </label>
         <label class="create-event-card">
-          <strong>End Time *</strong>
+          <strong>End Time <span class="text-red">*</span></strong>
           <input type="time" name="end_time" value="{{ values.get('end_time', '') }}" required>
         </label>
       </div>
       <label class="create-event-card">
-        <strong>Location *</strong>
-        <input type="text" name="location" value="{{ values.get('location', '') }}" maxlength="300" required>
+        <strong>Location <span class="text-red">*</span></strong>
+        <input type="text" name="location" placeholder="e.g., Somerset, NJ" value="{{ values.get('location', '') }}" maxlength="300" required>
       </label>
       <label class="create-event-card">
         <strong>Description</strong>
-        <textarea name="description" maxlength="10000">{{ values.get('description', '') or '' }}</textarea>
+        <textarea name="description" placeholder="Tell volunteers about this event (what to expect, the dress code, etc.)" maxlength="10000">{{ values.get('description', '') or '' }}</textarea>
       </label>
       {% if event and event.graphic_link %}
         <img class="event-poster" src="{{ event.graphic_link }}" alt="Current poster for {{ event.event_title }}">
-        <label><input type="checkbox" name="remove_poster" value="yes"> Remove current poster</label>
+        <label><input type="checkbox" name="remove_poster" value="yes"> Remove current flyer</label>
       {% endif %}
       <label class="create-event-card">
-        <strong>{{ 'Replace poster' if event else 'Event poster' }}</strong>
+        <strong>{{ 'Replace Flyer' if event else 'Event Flyer' }}</strong>
         <input type="file" name="flyer" accept="image/jpeg,image/png,image/webp">
-        <span>JPEG, PNG, or WebP, up to 5 MB and 25 megapixels. Optional.</span>
+        <span>JPEG, PNG, or WebP, up to 5 MB and 25 megapixels.</span>
       </label>
-      <button type="submit" class="button create-event-button button-yellow">Save Event</button>
+      <button type="submit" class="button create-event-button button-yellow">{{ 'Save Changes' if event else 'Create Event' }}</button>
     </form>
     </main>
     {% include 'footer.html' %}

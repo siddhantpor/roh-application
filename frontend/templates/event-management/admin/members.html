@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Membership review · Rays of Hope</title>
+  <title>Manage Members · Rays of Hope</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
   {% include 'header.html' %}
   <main class="content">
     <a href="{{ url_for('events') }}">Back to events</a>
-    <h1>Membership review</h1>
+    <h1>Manage Members</h1>
     <p>Approve verified accounts to join the organization. Revoking access keeps their records.</p>
     <div class="table-scroll">
       <table>
@@ -33,7 +33,7 @@
                     <button name="action" value="revoke">Revoke access</button>
                   {% else %}
                     <button name="action" value="approve">Approve</button>
-                    {% if member.pending %}<button name="action" value="decline">Decline</button>{% endif %}
+                    {% if member.pending %}<button name="action" value="decline">Reject</button>{% endif %}
                   {% endif %}
                 </form>
               {% endif %}
