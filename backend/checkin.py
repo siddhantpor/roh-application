@@ -19,9 +19,10 @@
 import datetime
 import zoneinfo
 import secrets
+from pathlib import Path
 import flask
 import auth
-import database
+import databasepostgresql as database
 
 #-----------------------------------------------------------------------
 # Design choices (see README.md, "Design choices")
@@ -34,10 +35,10 @@ LOCAL_TIMEZONE = zoneinfo.ZoneInfo('America/New_York')
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 CODE_LENGTH = 6
 
-# trying with human readable words 
+# trying with human readable words
 CODE_NUMBERS = '0123456789'
 NUMS_LENGTH = 2
-with open('eff_large_wordlist.txt') as f:
+with open(Path(__file__).with_name('eff_large_wordlist.txt')) as f:
     WORDS = [row.split()[1] for row in f]
 
 #-----------------------------------------------------------------------
@@ -80,9 +81,9 @@ def init(app):
 
 def member_checkin(event_id):
 
-    auth.authenticate()
+    auth.authenticate_member()
     username = auth.get_username()
-    user_id = database.get_user_id(username)
+    user_id = auth.get_user()['user_id']
 
     event = database.get_event(event_id)
     if event is None:
@@ -128,9 +129,8 @@ def member_checkin(event_id):
 
 def handle_member_checkin(event_id):
 
-    auth.authenticate()
-    username = auth.get_username()
-    user_id = database.get_user_id(username)
+    auth.authenticate_member()
+    user_id = auth.get_user()['user_id']
 
     event = database.get_event(event_id)
     if event is None:
@@ -142,7 +142,7 @@ def handle_member_checkin(event_id):
     elif event['checkin_code'] is None:
         msg = ('This event has no check-in code yet. '
             'Ask a director.')
-    elif _clean_code(code) != event['checkin_code']:
+    elif _clean_code(code) != _clean_code(event['checkin_code']):
         msg = (f'That code doesn\'t match {event["event_title"]}. '
             'Check the spelling, or ask a director.')
     else:
@@ -159,9 +159,8 @@ def handle_member_checkin(event_id):
 
 def handle_member_checkout(event_id):
 
-    auth.authenticate()
-    username = auth.get_username()
-    user_id = database.get_user_id(username)
+    auth.authenticate_member()
+    user_id = auth.get_user()['user_id']
 
     event = database.get_event(event_id)
     if event is None:
@@ -173,7 +172,7 @@ def handle_member_checkout(event_id):
     elif event['checkout_code'] is None:
         msg = ('This event has no check-out code yet. '
             'Ask a director.')
-    elif _clean_code(code) != event['checkout_code']:
+    elif _clean_code(code) != _clean_code(event['checkout_code']):
         msg = (f'That code doesn\'t match {event["event_title"]}. '
             'Check the spelling, or ask a director.')
     elif database.get_checkin(user_id, event_id) is None:
@@ -193,10 +192,8 @@ def handle_member_checkout(event_id):
 
 def admin_codes(event_id):
 
-    auth.authenticate()
+    auth.authenticate_admin()
     username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -212,10 +209,7 @@ def admin_codes(event_id):
 
 def handle_admin_codes(event_id):
 
-    auth.authenticate()
-    username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
+    auth.authenticate_admin()
 
     event = database.get_event(event_id)
     if event is None:
@@ -236,10 +230,8 @@ def handle_admin_codes(event_id):
 
 def admin_hours(event_id):
 
-    auth.authenticate()
+    auth.authenticate_admin()
     username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -274,10 +266,7 @@ def handle_admin_approve(event_id):
 
     # Approve one row as-is.
 
-    auth.authenticate()
-    username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
+    auth.authenticate_admin()
 
     event = database.get_event(event_id)
     if event is None:
@@ -307,10 +296,7 @@ def handle_admin_approve_all(event_id):
 
     # Approve every ready, not-yet-approved row.
 
-    auth.authenticate()
-    username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
+    auth.authenticate_admin()
 
     event = database.get_event(event_id)
     if event is None:
@@ -336,10 +322,8 @@ def handle_admin_approve_all(event_id):
 
 def admin_edit_hours(event_id, user_id):
 
-    auth.authenticate()
+    auth.authenticate_admin()
     username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
 
     event = database.get_event(event_id)
     if event is None:
@@ -366,10 +350,7 @@ def handle_admin_edit_hours(event_id, user_id):
 
     # Both S11b buttons post here: action=save or action=reject.
 
-    auth.authenticate()
-    username = auth.get_username()
-    if not database.is_admin(username):
-        return _not_authorized()
+    auth.authenticate_admin()
 
     event = database.get_event(event_id)
     if event is None:
@@ -417,14 +398,6 @@ def handle_admin_edit_hours(event_id, user_id):
 # Helpers
 #-----------------------------------------------------------------------
 
-def _not_authorized():
-
-    html_code = 'You are not authorized to view this page.'
-    response = flask.make_response(html_code)
-    return response
-
-#-----------------------------------------------------------------------
-
 def _member_url(event_id, msg):
 
     if msg == '':
@@ -461,13 +434,13 @@ def _generate_code():
     # secrets, not random: codes must not be guessable.
     # return ''.join(secrets.choice(CODE_ALPHABET)
     #     for _ in range(CODE_LENGTH))
-    
+
     number = ''
     for _ in range(NUMS_LENGTH):
         number += secrets.choice(CODE_NUMBERS)
-    
+
     word = secrets.choice(WORDS)
-    return f'{word}{number}'
+    return f'{word}{number}'.upper()
 
 #-----------------------------------------------------------------------
 

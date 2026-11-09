@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Membership status · Rays of Hope</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  {% include 'header.html' %}
+  <main class="content">
+    {% if current_user.pending %}
+      <h1>Waiting for membership approval</h1>
+      <p>Your email is verified. An admin must approve your account before you can access events or record volunteer hours.</p>
+    {% else %}
+      <h1>Your membership is not active</h1>
+      <p>Contact a Rays of Hope admin if you believe this is a mistake.</p>
+    {% endif %}
+    <p>Account: {{ current_user.email }}</p>
+    <a href="{{ url_for('membership') }}">Check membership status</a>
+  </main>
+  {% include 'footer.html' %}
+</body>
+</html>

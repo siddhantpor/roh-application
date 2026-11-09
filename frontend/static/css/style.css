@@ -175,18 +175,52 @@ input, textarea {
   margin: 0;
 }
 
+.event-card .edit-button,
 .event-card .event-card-button {
-  align-self: flex-end;
-}
-
-.event-card .edit-button {
   position: absolute;
   top: 12px;
   right: 12px;
+  z-index: 1;
+}
+
+.event-card .event-card-button ~ .text-gray,
+.event-card .event-card-button ~ .header-bold {
+  padding-right: 120px;
+}
+
+.event-card .card-link {
+  text-decoration: none;
+}
+
+.event-card .card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
 }
 
 .code-card {
-  /* TODO */
+  padding: 10px 15px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+}
+
+.code-card .code {
+  margin-top: 3px;
+  letter-spacing: 5px;
+}
+
+.section-pill {
+  width: 144px;
+  margin: 30px auto 20px;
+  border-radius: 20px;
+  background: var(--green);
+  line-height: 28px;
+  text-align: center;
+}
+
+.icon-map {
+  margin-right: 6px;
+  vertical-align: -1px;
 }
 
 .create-event-card {
@@ -229,4 +263,33 @@ input, textarea {
 .create-event-card input[type="file"] {
   height: auto;
   padding: 8px 10px;
+}
+
+/* Authentication screens; event dashboard styling remains with the team. */
+.site-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+}
+.site-header form { margin-left: auto; }
+.content { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+.auth-layout { max-width: 480px; }
+.auth-card p { line-height: 1.6; }
+.auth-note { color: var(--dark-gray); }
+.auth-card {
+  padding: 28px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 10px;
+  background: var(--white);
+}
+.welcome-logo { object-fit: contain; }
+.action-button { display: inline-block; padding: 12px 16px; border-radius: 10px; text-decoration: none; }
+.action-primary { background: #f5bf24; }
+.action-secondary { border: 1px solid var(--gray); }
+.event-poster { display: block; max-width: 100%; max-height: 600px; object-fit: contain; }
+.table-scroll { overflow-x: auto; }
+th, td { padding: 10px; text-align: left; vertical-align: top; }
+@media (max-width: 640px) {
+  .site-header { flex-wrap: wrap; }
 }

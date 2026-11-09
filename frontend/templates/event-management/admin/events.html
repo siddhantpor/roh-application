@@ -10,19 +10,18 @@
 
     <div class="button-row">
       <a href="/admin/events/create" class="button button-shadow home-button">Create an Event</a>
-      <a href="#" class="button button-shadow home-button">Manage Members</a> <!-- TODO: Update href. -->
+      <a href="/admin/members" class="button button-shadow home-button">Manage Members</a>
     </div>
 
-    <p class="caption">Your Upcoming Events</p>
+    <p class="caption section-pill">Your Upcoming Events</p>
 
     {% for event in admin_events %}
       <div class="event-card">
-        <!-- TODO: Update href. -->
-        <a href="#" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
+        <a href="/admin/events/{{ event.event_id }}/edit" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
         <!-- TODO: Button to lock/unlock codes. -->
-        <p class="text-gray">{{ event.date }}, {{ event.start_time }}-{{ event.end_time }}</p>
-        <p class="header-bold">{{ event.title }}</p>
-        <p class="subtext text-dark-gray">{{ event.location }} · {{ event.attending }} Members Attending</p>
+        <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
+        <p class="header-bold"><a href="/admin/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
+        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
         <div class="code-card">
           <p class="label">Private Check-in Code</p>
           <p class="code">{{ event.checkin_code }}</p>
