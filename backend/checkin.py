@@ -153,7 +153,7 @@ def handle_member_checkin(event_id):
             msg = ''
 
     # Redirect so a refresh doesn't resubmit the form.
-    return flask.redirect(_member_url(event_id, msg))
+    return _redirect_after_member_post(event_id, msg)
 
 #-----------------------------------------------------------------------
 
@@ -184,7 +184,7 @@ def handle_member_checkout(event_id):
         else:
             msg = ''
 
-    return flask.redirect(_member_url(event_id, msg))
+    return _redirect_after_member_post(event_id, msg)
 
 #-----------------------------------------------------------------------
 # Admin: codes (S6)
@@ -396,6 +396,36 @@ def handle_admin_edit_hours(event_id, user_id):
 
 #-----------------------------------------------------------------------
 # Helpers
+#-----------------------------------------------------------------------
+
+def card_state(user_id, event_id):
+
+    # Check-in status for one event card on /member/events.
+    checkin = database.get_checkin(user_id, event_id)
+    checkout = database.get_checkout(user_id, event_id)
+    if checkin is None:
+        return {'state': 'not_checked_in'}
+    if checkout is None:
+        return {'state': 'checked_in',
+            'checkin_display': _format_time(checkin['time'])}
+    return {'state': 'checked_out',
+        'checkin_display': _format_time(checkin['time']),
+        'checkout_display': _format_time(checkout['time'])}
+
+#-----------------------------------------------------------------------
+
+def _redirect_after_member_post(event_id, msg):
+
+    # Forms on the events list send back=events; go back to that list.
+    # (Only a fixed flag is accepted, never a URL: no open redirect.)
+    if flask.request.form.get('back') == 'events':
+        args = {'_anchor': f'event-{event_id}'}
+        if msg != '':
+            args['msg'] = msg
+            args['msg_event_id'] = event_id
+        return flask.redirect(flask.url_for('member_events', **args))
+    return flask.redirect(_member_url(event_id, msg))
+
 #-----------------------------------------------------------------------
 
 def _member_url(event_id, msg):

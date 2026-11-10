@@ -292,4 +292,20 @@ input, textarea {
 th, td { padding: 10px; text-align: left; vertical-align: top; }
 @media (max-width: 640px) {
   .site-header { flex-wrap: wrap; }
+
+  /* Phone sizes. The Figma sizes (9-12px) are too small to read on a
+     phone, so bump the text in event cards and the buttons around them.
+     Desktop keeps the Figma sizes. */
+  .event-card .label { font-size: 14px; }
+  .event-card .caption { font-size: 13px; }
+  .event-card .subtext { font-size: 14px; }
+  .event-card .text-gray,
+  .event-card .text-dark-gray { font-size: 14px; }
+  .event-card .header-bold { font-size: 22px; }
+  .event-card .event-card-button { height: 40px; font-size: 14px; }
+  .section-pill { width: auto; padding: 0 20px; font-size: 14px; line-height: 34px; }
+  .home-button { font-size: 16px; }
+  .event-card .code-input { font-size: 20px; height: 48px; }
+  .event-card .event-card-button ~ .text-gray,
+  .event-card .event-card-button ~ .header-bold { padding-right: 100px; }
 }
