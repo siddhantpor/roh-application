@@ -2,9 +2,46 @@
 <html>
   <head>
     <title>Rays of Hope</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/check-in.css">
   </head>
   <body>
+{# Check-in / check-out box shown inside an event card. #}
+{% macro checkin_box(event) %}
+  {% set c = event.checkin %}
+  {% set err = msg if msg_event_id == event.event_id else '' %}
+  <div class="code-card checkin-box">
+    {% if c.state == 'not_checked_in' %}
+      <form action="/member/events/{{ event.event_id }}/handlecheckin" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="back" value="events">
+        <p class="label">Check-in code</p>
+        <input class="code-input {% if err %}is-error{% endif %}" type="text" name="code"
+               autocomplete="off" autocapitalize="characters" maxlength="12"
+               required pattern=".*\S.*" title="Enter the code">
+        {% if err %}<p class="error-text">{{ err }}</p>{% endif %}
+        <button type="submit" class="button button-yellow checkin-submit">{% if err %}Try Again{% else %}Check In{% endif %}</button>
+      </form>
+    {% elif c.state == 'checked_in' %}
+      <p class="label">Checked in at {{ c.checkin_display }}</p>
+      <form action="/member/events/{{ event.event_id }}/handlecheckout" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="back" value="events">
+        <p class="caption text-gray">Leaving? Enter the check-out code.</p>
+        <input class="code-input {% if err %}is-error{% endif %}" type="text" name="code"
+               autocomplete="off" autocapitalize="characters" maxlength="12"
+               required pattern=".*\S.*" title="Enter the code">
+        {% if err %}<p class="error-text">{{ err }}</p>{% endif %}
+        <button type="submit" class="button button-shadow checkin-submit">Check Out</button>
+      </form>
+    {% else %}
+      <p class="label">Checked out &#10003;</p>
+      <p class="caption text-gray">{{ c.checkin_display }} &rarr; {{ c.checkout_display }} · waiting for admin approval</p>
+    {% endif %}
+  </div>
+{% endmacro %}
+
     {% include 'header.html' %}
     <h1 class="header text-center">Hello Student!</h1> <!-- TODO: Replace `Student` w/ user's first name. -->
 
@@ -15,22 +52,19 @@
     <p class="caption section-pill">Your Upcoming Events</p>
 
     {% for event in upcoming_events %}
-      <div class="event-card">
+      <div class="event-card" id="event-{{ event.event_id }}">
         <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-green">Attending</a>
         <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
         <p class="header-bold"><a href="/member/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
         <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} {{ 'Member' if event.attending == 1 else 'Members' }} Attending</p>
-        <div class="code-card">
-          <p class="label">Student Check-in</p>
-          <p class="text-dark-gray">Check-in Locked</p> <!-- TODO: Integrate this w/ Siddhant + Chinmayi's work! -->
-        </div>
+        {{ checkin_box(event) }}
       </div>
     {% endfor %}
 
     <p class="caption section-pill">Other Events</p>
 
     {% for event in other_events %}
-      <div class="event-card">
+      <div class="event-card" id="event-{{ event.event_id }}">
         {% if event.rsvp is false %}
           <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-red">Not Attending</a>
         {% else %}
@@ -39,6 +73,7 @@
         <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
         <p class="header-bold"><a href="/member/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
         <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} {{ 'Member' if event.attending == 1 else 'Members' }} Attending</p>
+        {{ checkin_box(event) }}
       </div>
     {% endfor %}
 

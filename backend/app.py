@@ -185,13 +185,19 @@ def update_membership(user_id):
 @app.route('/member/events')
 def member_events():
     auth.authenticate_member()
-    rsvps = database.get_rsvps_for_user(auth.get_user()['user_id'])
+    user_id = auth.get_user()['user_id']
+    rsvps = database.get_rsvps_for_user(user_id)
     upcoming_events, other_events = [], []
     for event in database.get_events():
         event['rsvp'] = rsvps.get(event['event_id'])
+        event['checkin'] = checkin.card_state(user_id, event['event_id'])
         (upcoming_events if event['rsvp'] is True else other_events).append(event)
+    # An error from a check-in/out form is shown only on that event's card.
+    msg = flask.request.args.get('msg', '')
+    msg_event_id = flask.request.args.get('msg_event_id', type=int)
     return flask.render_template('event-management/member/events.html',
-                                 upcoming_events=upcoming_events, other_events=other_events)
+                                 upcoming_events=upcoming_events, other_events=other_events,
+                                 msg=msg, msg_event_id=msg_event_id)
 
 
 @app.route('/member/events/<int:event_id>')
