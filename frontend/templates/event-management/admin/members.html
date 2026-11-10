@@ -8,8 +8,10 @@
 <body>
   {% include 'header.html' %}
   <main class="content">
-    <a href="{{ url_for('events') }}">Back to events</a>
-    <h1>Manage Members</h1>
+    <div class="header-row">
+      <a href="{{ url_for('events') }}" class="button button-shadow square-button">&lt;</a>
+      <h1>Manage Members</h1>
+    </div>
     <p>Approve verified accounts to join the organization. Revoking access keeps their records.</p>
     <div class="table-scroll">
       <table>

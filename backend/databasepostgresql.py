@@ -61,9 +61,11 @@ def get_event(event_id):
                        e.event_locat, e.graphic_link, e.checkin_code,
                        e.checkout_code, e.graphic_public_id,
                        (SELECT COUNT(*) FROM
-                           (SELECT DISTINCT ON (user_id) accepted FROM rsvps
+                           (SELECT DISTINCT ON (user_id) user_id, accepted FROM rsvps
                             WHERE event_id = e.event_id ORDER BY user_id, time DESC) latest
-                         WHERE latest.accepted = true)
+                         JOIN accounts a ON a.user_id = latest.user_id
+                         WHERE latest.accepted = true AND a.approved = true
+                           AND a.is_admin IS NOT TRUE)
                 FROM events e WHERE e.event_id = %s
                 ''', [event_id])
             table = cursor.fetchall()
@@ -105,9 +107,11 @@ def get_events():
                     e.event_locat, e.graphic_link, e.checkin_code,
                     e.checkout_code, e.graphic_public_id,
                     (SELECT COUNT(*) FROM
-                           (SELECT DISTINCT ON (user_id) accepted FROM rsvps
+                           (SELECT DISTINCT ON (user_id) user_id, accepted FROM rsvps
                             WHERE event_id = e.event_id ORDER BY user_id, time DESC) latest
-                         WHERE latest.accepted = true)
+                         JOIN accounts a ON a.user_id = latest.user_id
+                         WHERE latest.accepted = true AND a.approved = true
+                           AND a.is_admin IS NOT TRUE)
                 FROM events e
                 ORDER BY e.event_date, e.event_starttime
                 ''')
@@ -145,6 +149,42 @@ def get_rsvp(user_id, event_id):
             if len(table) != 1:
                 return None
             return table[0][0] is True
+
+#-----------------------------------------------------------------------
+
+def get_rsvps_for_user(user_id):
+    with _get_pool().connection() as connection:
+        rows = connection.execute('''
+            SELECT DISTINCT ON (event_id) event_id, accepted FROM rsvps
+            WHERE user_id = %s ORDER BY event_id, time DESC
+            ''', [user_id]).fetchall()
+    return {row[0]: row[1] is True for row in rows}
+
+#-----------------------------------------------------------------------
+
+def add_rsvp(user_id, event_id, accepted, time):
+    with _get_pool().connection() as connection:
+        connection.execute('''
+            INSERT INTO rsvps (user_id, event_id, time, accepted)
+            VALUES (%s, %s, %s, %s)
+            ''', [user_id, event_id, time, accepted])
+
+#-----------------------------------------------------------------------
+
+def get_event_rsvps(event_id):
+    with _get_pool().connection() as connection:
+        rows = connection.execute('''
+            SELECT a.user_id, a.email, latest.accepted
+            FROM accounts a
+            LEFT JOIN (SELECT DISTINCT ON (user_id) user_id, accepted FROM rsvps
+                       WHERE event_id = %s ORDER BY user_id, time DESC) latest
+                ON latest.user_id = a.user_id
+            WHERE a.approved = true AND a.is_admin IS NOT TRUE
+            ORDER BY a.email
+            ''', [event_id]).fetchall()
+    statuses = {True: 'Going', False: 'Not Going', None: 'Pending'}
+    return [{'user_id': row[0], 'name': row[1], 'status': statuses[row[2]]}
+            for row in rows]
 
 #-----------------------------------------------------------------------
 # Check-ins and check-outs: rows in `attendance`, is_checkin true/false

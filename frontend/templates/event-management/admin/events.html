@@ -21,7 +21,7 @@
         <!-- TODO: Button to lock/unlock codes. -->
         <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
         <p class="header-bold"><a href="/admin/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
-        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
+        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} {{ 'Member' if event.attending == 1 else 'Members' }} Attending</p>
         <div class="code-card">
           <p class="label">Private Check-in Code</p>
           <p class="code">{{ event.checkin_code }}</p>

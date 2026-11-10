@@ -154,7 +154,7 @@ def admin_attendees(event_id):
     auth.authenticate_admin()
     if database.get_event(event_id) is None:
         flask.abort(404)
-    members = []  # Attendee directory remains part of the event-management work.
+    members = database.get_event_rsvps(event_id)
     going = len([m for m in members if m['status'] == 'Going'])
     pending = len([m for m in members if m['status'] == 'Pending'])
     not_going = len([m for m in members if m['status'] == 'Not Going'])
@@ -185,8 +185,11 @@ def update_membership(user_id):
 @app.route('/member/events')
 def member_events():
     auth.authenticate_member()
-    upcoming_events = []
-    other_events = database.get_events()
+    rsvps = database.get_rsvps_for_user(auth.get_user()['user_id'])
+    upcoming_events, other_events = [], []
+    for event in database.get_events():
+        event['rsvp'] = rsvps.get(event['event_id'])
+        (upcoming_events if event['rsvp'] is True else other_events).append(event)
     return flask.render_template('event-management/member/events.html',
                                  upcoming_events=upcoming_events, other_events=other_events)
 
@@ -197,7 +200,19 @@ def member_event_detail(event_id):
     event = database.get_event(event_id)
     if event is None:
         flask.abort(404)
-    return flask.render_template('event-management/member/event_details.html', event=event)
+    rsvp = database.get_rsvp(auth.get_user()['user_id'], event_id)
+    return flask.render_template('event-management/member/event_details.html', event=event, rsvp=rsvp)
+
+
+@app.route('/member/events/<int:event_id>/rsvp', methods=['POST'])
+def member_rsvp(event_id):
+    auth.authenticate_member()
+    if database.get_event(event_id) is None:
+        flask.abort(404)
+    accepted = flask.request.form.get('rsvp') == 'yes'
+    time = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    database.add_rsvp(auth.get_user()['user_id'], event_id, accepted, time)
+    return flask.redirect(flask.url_for('member_event_detail', event_id=event_id))
 
 
 @app.after_request
