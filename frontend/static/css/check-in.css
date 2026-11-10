@@ -183,3 +183,25 @@
   font-size: 12px;
   font-weight: 700;
 }
+
+/* Check-in box inside an event card on /member/events.
+   Sits above the card's full-card link so the form stays clickable. */
+.checkin-box {
+  position: relative;
+  z-index: 2;
+}
+
+.checkin-box p {
+  margin: 0;
+}
+
+.checkin-box .checkin-submit {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  margin-top: 12px;
+  font-size: 16px;   /* fixed px: stays the same size as the card narrows */
+  font-weight: 700;
+  cursor: pointer;
+}
