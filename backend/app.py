@@ -154,7 +154,7 @@ def admin_attendees(event_id):
     auth.authenticate_admin()
     if database.get_event(event_id) is None:
         flask.abort(404)
-    members = []  # Attendee directory remains part of the event-management work.
+    members = database.get_event_rsvps(event_id)
     going = len([m for m in members if m['status'] == 'Going'])
     pending = len([m for m in members if m['status'] == 'Pending'])
     not_going = len([m for m in members if m['status'] == 'Not Going'])
@@ -186,10 +186,12 @@ def update_membership(user_id):
 def member_events():
     auth.authenticate_member()
     user_id = auth.get_user()['user_id']
-    upcoming_events = []
-    other_events = database.get_events()
-    for event in other_events:
+    rsvps = database.get_rsvps_for_user(user_id)
+    upcoming_events, other_events = [], []
+    for event in database.get_events():
+        event['rsvp'] = rsvps.get(event['event_id'])
         event['checkin'] = checkin.card_state(user_id, event['event_id'])
+        (upcoming_events if event['rsvp'] is True else other_events).append(event)
     # An error from a check-in/out form is shown only on that event's card.
     msg = flask.request.args.get('msg', '')
     msg_event_id = flask.request.args.get('msg_event_id', type=int)
@@ -204,7 +206,19 @@ def member_event_detail(event_id):
     event = database.get_event(event_id)
     if event is None:
         flask.abort(404)
-    return flask.render_template('event-management/member/event_details.html', event=event)
+    rsvp = database.get_rsvp(auth.get_user()['user_id'], event_id)
+    return flask.render_template('event-management/member/event_details.html', event=event, rsvp=rsvp)
+
+
+@app.route('/member/events/<int:event_id>/rsvp', methods=['POST'])
+def member_rsvp(event_id):
+    auth.authenticate_member()
+    if database.get_event(event_id) is None:
+        flask.abort(404)
+    accepted = flask.request.form.get('rsvp') == 'yes'
+    time = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    database.add_rsvp(auth.get_user()['user_id'], event_id, accepted, time)
+    return flask.redirect(flask.url_for('member_event_detail', event_id=event_id))
 
 
 @app.after_request

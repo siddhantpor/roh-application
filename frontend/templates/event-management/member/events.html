@@ -53,10 +53,10 @@
 
     {% for event in upcoming_events %}
       <div class="event-card" id="event-{{ event.event_id }}">
-        <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-green">View Details</a>
+        <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-green">Attending</a>
         <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
         <p class="header-bold"><a href="/member/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
-        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
+        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} {{ 'Member' if event.attending == 1 else 'Members' }} Attending</p>
         {{ checkin_box(event) }}
       </div>
     {% endfor %}
@@ -65,10 +65,14 @@
 
     {% for event in other_events %}
       <div class="event-card" id="event-{{ event.event_id }}">
-        <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-yellow">Register</a>
+        {% if event.rsvp is false %}
+          <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-red">Not Attending</a>
+        {% else %}
+          <a href="/member/events/{{ event.event_id }}" class="button event-card-button button-yellow">RSVP</a>
+        {% endif %}
         <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
         <p class="header-bold"><a href="/member/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
-        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
+        <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} {{ 'Member' if event.attending == 1 else 'Members' }} Attending</p>
         {{ checkin_box(event) }}
       </div>
     {% endfor %}

@@ -14,12 +14,14 @@
 
     <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
     <h1 class="header-bold">{{ event.event_title }}</h1>
-    <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} Members Attending</p>
+    <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} {{ 'Member' if event.attending == 1 else 'Members' }} Attending</p>
 
     <p><strong>About</strong></p>
     <p>{{ event.event_descrip }}</p>
 
-    <a href="/admin/events/{{ event.event_id }}/attendees">View Attendees</a>
+    <div class="button-row">
+      <a href="/admin/events/{{ event.event_id }}/attendees" class="button button-shadow home-button">View Attendees</a>
+    </div>
 
     {% include 'footer.html' %}
   </body>
