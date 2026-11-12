@@ -220,6 +220,26 @@ def member_rsvp(event_id):
     database.add_rsvp(auth.get_user()['user_id'], event_id, accepted, time)
     return flask.redirect(flask.url_for('member_event_detail', event_id=event_id))
 
+@app.route('/member/hours')
+def member_hours():
+    auth.authenticate_member()
+    user = auth.get_user()
+    user_id = user['user_id']
+    start_date = flask.request.args.get('start_date') or '1900-01-01'
+    end_date = flask.request.args.get('end_date') or datetime.date.today()
+    attendance = database.get_hours(user_id, start_date, end_date)
+    total_hours = sum(event['hours'] or 0 for event in attendance)
+    total_events = len(attendance)
+    if flask.request.args.get('ajax') == '1':
+        return flask.jsonify(
+            hours=total_hours,
+            events=total_events,
+            attendance=attendance,
+    )
+    return flask.render_template('hours/members_hours.html',
+                                 hours=total_hours,
+                                 events=total_events,
+                                 member_attendance=attendance)
 
 @app.after_request
 def prevent_page_caching(response):

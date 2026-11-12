@@ -46,7 +46,7 @@
     <h1 class="header text-center">Hello Student!</h1> <!-- TODO: Replace `Student` w/ user's first name. -->
 
     <div class="button-row">
-      <a href="#" class="button button-shadow home-button">My Hours</a> <!-- TODO: Update href. -->
+      <a href="/member/hours" class="button button-shadow home-button">My Hours</a> <!-- TODO: Update href. -->
     </div>
 
     <p class="caption section-pill">Your Upcoming Events</p>
@@ -62,7 +62,6 @@
     {% endfor %}
 
     <p class="caption section-pill">Other Events</p>
-
     {% for event in other_events %}
       <div class="event-card" id="event-{{ event.event_id }}">
         {% if event.rsvp is false %}

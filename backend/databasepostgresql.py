@@ -131,13 +131,10 @@ def get_events():
     return events
 
 #-----------------------------------------------------------------------
-
-#-----------------------------------------------------------------------
 # RSVPs
 #-----------------------------------------------------------------------
 
 def get_rsvp(user_id, event_id):
-
     with _get_pool().connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute('''
