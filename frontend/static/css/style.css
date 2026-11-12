@@ -150,6 +150,21 @@ input, textarea {
   background: var(--green);
 }
 
+.green-card {
+  height: 68px;
+  width: 400px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  background: var(--green);
+}
+
+.green-card p {
+  margin: 2px;
+}
+
 .button-yellow {
   background: var(--yellow);
 }
