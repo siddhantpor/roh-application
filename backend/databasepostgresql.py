@@ -179,7 +179,7 @@ def get_event_rsvps(event_id):
             WHERE a.approved = true AND a.is_admin IS NOT TRUE
             ORDER BY a.email
             ''', [event_id]).fetchall()
-    statuses = {True: 'Going', False: 'Not Going', None: 'Pending'}
+    statuses = {True: 'Attending', False: 'Not Attending', None: 'Pending'}
     return [{'user_id': row[0], 'name': row[1], 'status': statuses[row[2]]}
             for row in rows]
 
