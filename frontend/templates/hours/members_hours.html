@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <h1 class="header text-center">My Hours</h1>
+
+    <div class="green-card">
+        <p class="header-bold text-center" id="total-hours"> {{ hours }} Hours </p>
+      <p class ="subtext text-center" id="total-events"> Across {{ events }} events</p>
+    </div>
+
+    <br>
+    <br>
+
+    <div>
+        <form method="get" id="date-filter" enctype="multipart/form-data">
+            <label class="create-event-card-row">
+                <label class="create-event-card">
+                <strong>Start Date <span class="text-red">*</span></strong>
+                <input type="date" name="start_date" id="start_date">
+                </label>
+
+                <label class="create-event-card">
+                <strong>End Date <span class="text-red">*</span></strong>
+                <input type="date" name="end_date" id="end_date">
+                </label>
+            </label>
+        </form>
+    </div>
+
+    <script>
+        const startDate = document.querySelector('#start_date');
+        const endDate = document.querySelector('#end_date');
+
+        async function updateHours() {
+          if (startDate.value && endDate.value && startDate.value > endDate.value) return;
+
+          const params = new URLSearchParams({
+            start_date: startDate.value,
+            end_date: endDate.value,
+            ajax: '1'
+          });
+
+          const response = await fetch(`/member/hours?${params}`);
+          if (!response.ok) return;
+
+          const data = await response.json();
+
+          document.querySelector('#total-hours').textContent = `${data.hours} Hours`;
+          document.querySelector('#total-events').textContent = `Across ${data.events} events`;
+
+          document.querySelector('#event-list').innerHTML = data.attendance.map(event => `
+            <div class="event-card">
+              <p class="button event-card-button button-green">${event.hours ?? 0} hours</p>
+              <p class="header-bold">
+                <a href="/member/events/${event.event_id}" class="card-link">${event.event_title}</a>
+              </p>
+              <p class="text-gray">${event.event_date}</p>
+            </div>
+          `).join('')
+        }
+        startDate.addEventListener('change', updateHours);
+        endDate.addEventListener('change', updateHours);
+    </script>
+
+    <div class="header-bold">
+        Hours by Event
+    </div>
+
+    <div id="event-list">
+    {% for event in member_attendance %}
+      <div class="event-card">
+        <p class="button event-card-button button-green"> {{ event.hours }} hours </a>
+        <p class="header-bold"><a href="/member/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
+        <p class="text-gray">{{ event.event_date | format_date }}</p>
+      </div>
+    {% endfor %}
+    </div>
+
+    {% include 'footer.html' %}
+  </body>
+</html>
