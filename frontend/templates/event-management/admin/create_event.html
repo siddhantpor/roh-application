@@ -10,7 +10,7 @@
     <main class="content">
     <div class="header-row">
       <a href="{{ url_for('admin_event_detail', event_id=event.event_id) if event else url_for('events') }}" class="button button-shadow square-button">&lt;</a>
-      <h1 class="header-bold">{{ 'Edit Event' if event else 'Create an Event' }}</h1>
+      <h1 class="header-bold page-title">{{ 'Edit Event' if event else 'Create an Event' }}</h1>
     </div>
     <form method="post" enctype="multipart/form-data">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

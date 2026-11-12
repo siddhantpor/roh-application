@@ -1,37 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Rays of Hope</title>
     <link rel="stylesheet" href="/static/css/style.css">
   </head>
   <body>
     {% include 'header.html' %}
+    <main class="content">
     <div class="header-row">
       <a href="/admin/events/{{ event_id }}" class="button button-shadow square-button">&lt;</a>
-      <h1 class="header-bold">Attendees</h1>
+      <h1 class="header-bold page-title">Attendees</h1>
     </div>
 
-    <div>
-      <p class="number-bold">{{ going }}</p>
-      <p>Going</p>
-    </div>
-    <div>
-      <p class="number-bold">{{ pending }}</p>
-      <p>Pending</p>
-    </div>
-    <div>
-      <p class="number-bold">{{ not_going }}</p>
-      <p>Not Going</p>
+    <div class="attendee-stats">
+      <div class="button-shadow button-green stat-tile">
+        <p class="number-bold">{{ attending }}</p>
+        <p>Attending</p>
+      </div>
+      <div class="button-shadow button-yellow stat-tile">
+        <p class="number-bold">{{ pending }}</p>
+        <p>Pending</p>
+      </div>
+      <div class="button-shadow button-red stat-tile">
+        <p class="number-bold">{{ not_attending }}</p>
+        <p>Not Attending</p>
+      </div>
     </div>
 
     <!-- TODO: Search bar. -->
 
+    {% set pill_colors = {'Attending': 'button-green', 'Pending': 'button-yellow', 'Not Attending': 'button-red'} %}
     {% for member in members %}
-      <div>
+      <div class="attendee-row">
         <p class="subtext-bold text-dark-gray">{{ member.name }}</p>
-        <p class="caption">{{ member.status }}</p>
+        <p class="caption status-pill {{ pill_colors.get(member.status, '') }}">{{ member.status }}</p>
       </div>
     {% endfor %}
+    </main>
 
     {% include 'footer.html' %}
   </body>

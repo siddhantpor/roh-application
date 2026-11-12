@@ -155,12 +155,12 @@ def admin_attendees(event_id):
     if database.get_event(event_id) is None:
         flask.abort(404)
     members = database.get_event_rsvps(event_id)
-    going = len([m for m in members if m['status'] == 'Going'])
+    attending = len([m for m in members if m['status'] == 'Attending'])
     pending = len([m for m in members if m['status'] == 'Pending'])
-    not_going = len([m for m in members if m['status'] == 'Not Going'])
+    not_attending = len([m for m in members if m['status'] == 'Not Attending'])
     return flask.render_template('event-management/admin/attendees.html',
-                                 event_id=event_id, members=members, going=going,
-                                 pending=pending, not_going=not_going)
+                                 event_id=event_id, members=members, attending=attending,
+                                 pending=pending, not_attending=not_attending)
 
 
 @app.route('/admin/members')
