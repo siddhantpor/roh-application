@@ -96,7 +96,7 @@ def set_event_codes(event_id, checkin_code, checkout_code):
 
 #-----------------------------------------------------------------------
 
-def get_events():
+def get_events(start_date=None, end_date=None):
     events = []
     with _get_pool().connection() as connection:
         with connection.cursor() as cursor:
@@ -113,8 +113,10 @@ def get_events():
                          WHERE latest.accepted = true AND a.approved = true
                            AND a.is_admin IS NOT TRUE)
                 FROM events e
+                WHERE (%s::date IS NULL OR e.event_date >= %s)
+                  AND (%s::date IS NULL OR e.event_date <= %s)
                 ORDER BY e.event_date, e.event_starttime
-                ''')
+                ''', [start_date, start_date, end_date, end_date])
             for row in cursor.fetchall():
                 events.append({
                     'event_id': row[0],

@@ -62,7 +62,13 @@ def index():
 @app.route('/admin/events')
 def events():
     auth.authenticate_admin()
-    admin_events = database.get_events()
+    start_date = flask.request.args.get('start_date') or None
+    end_date = flask.request.args.get('end_date') or None
+
+    admin_events = database.get_events(start_date, end_date)
+    if flask.request.args.get('ajax') == '1':
+        return flask.jsonify(html=flask.render_template(
+            'event-management/admin/_event_list.html', admin_events=admin_events))
     return flask.render_template('event-management/admin/events.html', admin_events=admin_events)
 
 
