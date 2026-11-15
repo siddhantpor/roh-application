@@ -411,7 +411,13 @@ def get_account(user_id):
             'approved': bool(row[6]), 'pending': bool(row[7])}
 
 
-def link_auth0_user(subject, email, name, bootstrap_admin=False):
+def set_display_name(user_id, display_name):
+    with _get_pool().connection() as connection:
+        connection.execute('UPDATE accounts SET display_name = %s WHERE user_id = %s',
+                           [display_name, user_id])
+
+
+def link_auth0_user(subject, email, bootstrap_admin=False):
     with _get_pool().connection() as connection:
         row = connection.execute('SELECT user_id FROM accounts WHERE auth0_sub = %s', [subject]).fetchone()
         if row:
@@ -424,16 +430,16 @@ def link_auth0_user(subject, email, name, bootstrap_admin=False):
             if matches:
                 user_id = matches[0][0]
                 connection.execute('''
-                    UPDATE accounts SET auth0_sub = %s, display_name = %s,
+                    UPDATE accounts SET auth0_sub = %s,
                         is_admin = CASE WHEN %s THEN %s ELSE is_admin END
                     WHERE user_id = %s AND auth0_sub IS NULL
-                ''', [subject, name, bootstrap_admin, True, user_id])
+                ''', [subject, bootstrap_admin, True, user_id])
             else:
                 user_id = connection.execute('''
                     INSERT INTO accounts (username, password, email, display_name, is_admin,
                                           approved, pending, auth0_sub)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING user_id
-                ''', [subject, '', email, name, bootstrap_admin, bootstrap_admin, not bootstrap_admin, subject]).fetchone()[0]
+                ''', [subject, '', email, '', bootstrap_admin, bootstrap_admin, not bootstrap_admin, subject]).fetchone()[0]
     return get_account(user_id)
 
 
