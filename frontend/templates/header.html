@@ -1,13 +1,12 @@
 <header class="site-header">
-  <a href="{{ url_for('index') }}">Rays of Hope</a>
+  <a class="site-brand" href="/">
+    <img src="/static/images/logo.png" alt="" width="52" height="52">
+    <strong>Rays of Hope</strong>
+  </a>
   {% if current_user %}
-    <form action="{{ url_for('logout') }}" method="post">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <button type="submit">Log out</button>
-    </form>
-  {% else %}
-    <a href="{{ url_for('login') }}">Log in</a>
-    <a href="{{ url_for('signup') }}">Sign up</a>
+    <nav class="site-nav" aria-label="Account">
+      <a class="button site-nav-button" href="/my-profile">My Profile</a>
+    </nav>
   {% endif %}
 </header>
 {% for message in get_flashed_messages() %}

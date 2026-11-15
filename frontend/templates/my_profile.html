@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Profile · Rays of Hope</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  {% include 'header.html' %}
+  <main class="content auth-layout auth-card">
+    <h1>My Profile</h1>
+    <p>Name: {{ current_user.display_name or 'Not provided' }}</p>
+    <p>Email: {{ current_user.email }}</p>
+    <form action="/logout" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button type="submit" class="button site-nav-button">Log out</button>
+    </form>
+  </main>
+  {% include 'footer.html' %}
+</body>
+</html>
