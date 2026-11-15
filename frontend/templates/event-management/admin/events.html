@@ -16,12 +16,21 @@
 
     <p class="caption section-pill">Events</p>
 
+    <div class="button-row">
+      <a href="/admin/events?tab=upcoming" class="button {{ 'button-green' if tab == 'upcoming' else 'button-shadow' }}" {% if tab == 'upcoming' %}aria-current="page"{% endif %}>Current &amp; Upcoming</a>
+      <a href="/admin/events?tab=past" class="button {{ 'button-green' if tab == 'past' else 'button-shadow' }}" {% if tab == 'past' %}aria-current="page"{% endif %}>Past</a>
+      <a href="/admin/events?tab=pending" class="button {{ 'button-green' if tab == 'pending' else 'button-shadow' }}" {% if tab == 'pending' %}aria-current="page"{% endif %}>Pending Hours Approval</a>
+    </div>
+
     {% for event in admin_events %}
       <div class="event-card">
         <a href="/admin/events/{{ event.event_id }}/edit" class="button square-button button-green edit-button"><img src="/static/images/edit.svg"></a>
         <!-- TODO: Button to lock/unlock codes. -->
         <p class="text-gray">{{event.event_date | format_date}}, {{event.start_time | format_time}}-{{event.end_time | format_time}}</p>
         <p class="header-bold"><a href="/admin/events/{{ event.event_id }}" class="card-link">{{ event.event_title }}</a></p>
+        {% if tab != 'upcoming' %}
+          <p><a href="/admin/events/{{ event.event_id }}/hours">Review Hours</a></p>
+        {% endif %}
         <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{event.event_locat}} · {{event.attending}} {{'Member' if event.attending == 1 else 'Members'}} Attending</p>
         <div class="code-card">
           <p class="label">Private Check-in Code</p>
@@ -33,7 +42,13 @@
         </div>
       </div>
     {% else %}
-      <p class="text-gray">No events yet.</p>
+      {% if tab == 'pending' %}
+        <p class="text-gray">No events awaiting hours approval.</p>
+      {% elif tab == 'past' %}
+        <p class="text-gray">No past events.</p>
+      {% else %}
+        <p class="text-gray">No current or upcoming events.</p>
+      {% endif %}
     {% endfor %}
 
     {% include 'footer.html' %}

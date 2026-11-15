@@ -62,8 +62,32 @@ def index():
 @app.route('/admin/events')
 def events():
     auth.authenticate_admin()
-    admin_events = database.get_events()
-    return flask.render_template('event-management/admin/events.html', admin_events=admin_events)
+    tab = flask.request.args.get('tab', 'upcoming')
+    if tab not in ('upcoming', 'past', 'pending'):
+        tab = 'upcoming'
+
+    now = datetime.datetime.now(checkin.LOCAL_TIMEZONE)
+    upcoming_events = []
+    past_events = []
+    for event in database.get_events():
+        event_end = datetime.datetime.fromisoformat(
+            event['event_date'] + 'T' + event['end_time'])
+        event_end = event_end.replace(tzinfo=checkin.LOCAL_TIMEZONE)
+        if event_end > now:
+            upcoming_events.append(event)
+        else:
+            past_events.append(event)
+
+    if tab == 'past':
+        admin_events = list(reversed(past_events))
+    elif tab == 'pending':
+        pending_ids = database.get_pending_hours_event_ids()
+        admin_events = [event for event in reversed(past_events)
+                        if event['event_id'] in pending_ids]
+    else:
+        admin_events = upcoming_events
+    return flask.render_template('event-management/admin/events.html',
+                                 admin_events=admin_events, tab=tab)
 
 
 @app.route('/admin/hours')

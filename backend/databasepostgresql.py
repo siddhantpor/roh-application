@@ -272,6 +272,23 @@ def get_attendance(event_id):
 
 #-----------------------------------------------------------------------
 
+def get_pending_hours_event_ids():
+
+    with _get_pool().connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT DISTINCT c.event_id
+                FROM attendance c
+                LEFT JOIN attendance o
+                    ON o.user_id = c.user_id AND o.event_id = c.event_id
+                   AND o.is_checkin = false
+                WHERE c.is_checkin = true
+                  AND (c.approved IS NOT TRUE OR o.approved IS NOT TRUE)
+                ''')
+            return {row[0] for row in cursor.fetchall()}
+
+#-----------------------------------------------------------------------
+
 def get_admin_hours(start_date=None, end_date=None, user_id=None):
 
     attendance = []
