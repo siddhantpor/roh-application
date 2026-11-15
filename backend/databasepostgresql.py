@@ -96,7 +96,7 @@ def set_event_codes(event_id, checkin_code, checkout_code):
 
 #-----------------------------------------------------------------------
 
-def get_events():
+def get_events(start_date=None, end_date=None):
     events = []
     with _get_pool().connection() as connection:
         with connection.cursor() as cursor:
@@ -113,8 +113,10 @@ def get_events():
                          WHERE latest.accepted = true AND a.approved = true
                            AND a.is_admin IS NOT TRUE)
                 FROM events e
+                WHERE (%s::date IS NULL OR e.event_date >= %s)
+                  AND (%s::date IS NULL OR e.event_date <= %s)
                 ORDER BY e.event_date, e.event_starttime
-                ''')
+                ''', [start_date, start_date, end_date, end_date])
             for row in cursor.fetchall():
                 events.append({
                     'event_id': row[0],
@@ -265,6 +267,57 @@ def get_attendance(event_id):
                     'checkin_approved': row[3] is True,
                     'checkout_time': checkout_time,
                     'checkout_approved': row[5] is True,
+                    'hours': _hours_between(checkin_time, checkout_time)})
+    return attendance
+
+#-----------------------------------------------------------------------
+
+def get_pending_hours_event_ids():
+
+    with _get_pool().connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT DISTINCT c.event_id
+                FROM attendance c
+                LEFT JOIN attendance o
+                    ON o.user_id = c.user_id AND o.event_id = c.event_id
+                   AND o.is_checkin = false
+                WHERE c.is_checkin = true
+                  AND (c.approved IS NOT TRUE OR o.approved IS NOT TRUE)
+                ''')
+            return {row[0] for row in cursor.fetchall()}
+
+#-----------------------------------------------------------------------
+
+def get_admin_hours(start_date=None, end_date=None, user_id=None):
+
+    attendance = []
+    with _get_pool().connection() as connection:
+        with connection.cursor() as cursor:
+            cursor.execute('''
+                SELECT a.user_id, a.display_name, a.email, c.event_id,
+                       c.time, c.approved, o.time, o.approved,
+                       e.event_title, e.event_date
+                FROM attendance c
+                JOIN accounts a ON a.user_id = c.user_id
+                JOIN events e ON e.event_id = c.event_id
+                LEFT JOIN attendance o
+                    ON o.user_id = c.user_id AND o.event_id = c.event_id
+                   AND o.is_checkin = false
+                WHERE c.is_checkin = true AND a.is_admin IS NOT TRUE
+                  AND (%s::date IS NULL OR e.event_date >= %s)
+                  AND (%s::date IS NULL OR e.event_date <= %s)
+                  AND (%s::integer IS NULL OR a.user_id = %s)
+                ORDER BY e.event_date DESC, e.event_starttime DESC
+                ''', [start_date, start_date, end_date, end_date, user_id, user_id])
+            for row in cursor.fetchall():
+                checkin_time = _timestamp_text(row[4])
+                checkout_time = _timestamp_text(row[6])
+                attendance.append({'user_id': row[0],
+                    'display_name': row[1], 'email': row[2],
+                    'event_id': row[3], 'checkout_time': checkout_time,
+                    'event_title': row[8], 'event_date': _date_text(row[9]),
+                    'approved': row[5] is True and row[7] is True,
                     'hours': _hours_between(checkin_time, checkout_time)})
     return attendance
 

@@ -224,6 +224,11 @@ input, textarea {
   inset: 0;
 }
 
+.event-card .review-hours-link {
+  position: relative;
+  z-index: 1;
+}
+
 .attendee-stats {
   display: flex;
   gap: 8px;
@@ -335,14 +340,22 @@ input, textarea {
   padding: 8px 10px;
 }
 
-/* Authentication screens; event dashboard styling remains with the team. */
+/* Shared navigation. */
 .site-header {
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 16px;
+  background: var(--white);
+  border-bottom: 1px solid rgb(0 0 0 / 0.1);
 }
-.site-header form { margin-left: auto; }
+.site-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; }
+.site-brand img { display: block; object-fit: contain; }
+.site-nav { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.site-nav-button { min-height: 40px; border: 1px solid rgb(0 0 0 / 0.1); }
+.site-nav-button:hover { background: var(--yellow); }
+
+/* Authentication screens */
 .content { max-width: 960px; margin: 32px auto; padding: 0 16px; }
 .auth-layout { max-width: 480px; }
 .auth-card p { line-height: 1.6; }

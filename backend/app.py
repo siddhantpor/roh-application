@@ -62,8 +62,88 @@ def index():
 @app.route('/admin/events')
 def events():
     auth.authenticate_admin()
-    admin_events = database.get_events()
-    return flask.render_template('event-management/admin/events.html', admin_events=admin_events)
+    tab = flask.request.args.get('tab', 'upcoming')
+    if tab not in ('upcoming', 'past', 'pending'):
+        tab = 'upcoming'
+
+    now = datetime.datetime.now(checkin.LOCAL_TIMEZONE)
+    upcoming_events = []
+    past_events = []
+    for event in database.get_events():
+        event_end = datetime.datetime.fromisoformat(
+            event['event_date'] + 'T' + event['end_time'])
+        event_end = event_end.replace(tzinfo=checkin.LOCAL_TIMEZONE)
+        if event_end > now:
+            upcoming_events.append(event)
+        else:
+            past_events.append(event)
+
+    if tab == 'past':
+        admin_events = list(reversed(past_events))
+    elif tab == 'pending':
+        pending_ids = database.get_pending_hours_event_ids()
+        admin_events = [event for event in reversed(past_events)
+                        if event['event_id'] in pending_ids]
+    else:
+        admin_events = upcoming_events
+    return flask.render_template('event-management/admin/events.html',
+                                 admin_events=admin_events, tab=tab)
+
+
+@app.route('/admin/hours')
+def admin_volunteer_hours():
+    auth.authenticate_admin()
+    start_date = flask.request.args.get('start_date') or None
+    end_date = flask.request.args.get('end_date') or None
+    search = flask.request.args.get('search', '').strip()
+    members = {}
+    for record in database.get_admin_hours(start_date, end_date):
+        user_id = record['user_id']
+        if user_id not in members:
+            members[user_id] = {
+                'user_id': user_id,
+                'name': record['display_name'] or record['email'],
+                'email': record['email'], 'events': 0,
+                'approved_hours': 0, 'pending_hours': 0,
+                'missing_checkouts': 0,
+            }
+        member = members[user_id]
+        member['events'] += 1
+        if record['checkout_time'] is None:
+            member['missing_checkouts'] += 1
+        elif record['approved']:
+            member['approved_hours'] += record['hours'] or 0
+        else:
+            member['pending_hours'] += record['hours'] or 0
+
+    members = sorted(members.values(), key=lambda member: member['name'].lower())
+    if search:
+        members = [member for member in members
+                   if search.lower() in member['name'].lower()
+                   or search.lower() in member['email'].lower()]
+    return flask.render_template('hours/admin_hours.html', members=members,
+                                 start_date=start_date, end_date=end_date, search=search)
+
+
+@app.route('/admin/hours/<int:user_id>')
+def admin_member_hours(user_id):
+    auth.authenticate_admin()
+    member = database.get_account(user_id)
+    if member is None or member['is_admin']:
+        flask.abort(404)
+    start_date = flask.request.args.get('start_date') or None
+    end_date = flask.request.args.get('end_date') or None
+    search = flask.request.args.get('search', '').strip()
+    attendance = database.get_admin_hours(start_date, end_date, user_id)
+    approved_hours = sum(record['hours'] or 0 for record in attendance
+                         if record['approved'])
+    pending_hours = sum(record['hours'] or 0 for record in attendance
+                        if not record['approved'])
+    missing_checkouts = sum(record['checkout_time'] is None for record in attendance)
+    return flask.render_template('hours/admin_member_hours.html',
+        member=member, attendance=attendance, approved_hours=approved_hours,
+        pending_hours=pending_hours, missing_checkouts=missing_checkouts,
+        start_date=start_date, end_date=end_date, search=search)
 
 
 @app.route('/admin/events/create')
