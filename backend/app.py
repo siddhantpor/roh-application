@@ -62,14 +62,58 @@ def index():
 @app.route('/admin/events')
 def events():
     auth.authenticate_admin()
+    admin_events = database.get_events()
+    return flask.render_template('event-management/admin/events.html', admin_events=admin_events)
+
+
+@app.route('/admin/hours')
+def admin_volunteer_hours():
+    auth.authenticate_admin()
     start_date = flask.request.args.get('start_date') or None
     end_date = flask.request.args.get('end_date') or None
+    members = {}
+    for record in database.get_admin_hours(start_date, end_date):
+        user_id = record['user_id']
+        if user_id not in members:
+            members[user_id] = {
+                'user_id': user_id,
+                'name': record['display_name'] or record['email'],
+                'email': record['email'], 'events': 0,
+                'approved_hours': 0, 'pending_hours': 0,
+                'missing_checkouts': 0,
+            }
+        member = members[user_id]
+        member['events'] += 1
+        if record['checkout_time'] is None:
+            member['missing_checkouts'] += 1
+        elif record['approved']:
+            member['approved_hours'] += record['hours'] or 0
+        else:
+            member['pending_hours'] += record['hours'] or 0
 
-    admin_events = database.get_events(start_date, end_date)
-    if flask.request.args.get('ajax') == '1':
-        return flask.jsonify(html=flask.render_template(
-            'event-management/admin/_event_list.html', admin_events=admin_events))
-    return flask.render_template('event-management/admin/events.html', admin_events=admin_events)
+    members = sorted(members.values(), key=lambda member: member['name'].lower())
+    return flask.render_template('hours/admin_hours.html', members=members,
+                                 start_date=start_date, end_date=end_date)
+
+
+@app.route('/admin/hours/<int:user_id>')
+def admin_member_hours(user_id):
+    auth.authenticate_admin()
+    member = database.get_account(user_id)
+    if member is None or member['is_admin']:
+        flask.abort(404)
+    start_date = flask.request.args.get('start_date') or None
+    end_date = flask.request.args.get('end_date') or None
+    attendance = database.get_admin_hours(start_date, end_date, user_id)
+    approved_hours = sum(record['hours'] or 0 for record in attendance
+                         if record['approved'])
+    pending_hours = sum(record['hours'] or 0 for record in attendance
+                        if not record['approved'])
+    missing_checkouts = sum(record['checkout_time'] is None for record in attendance)
+    return flask.render_template('hours/admin_member_hours.html',
+        member=member, attendance=attendance, approved_hours=approved_hours,
+        pending_hours=pending_hours, missing_checkouts=missing_checkouts,
+        start_date=start_date, end_date=end_date)
 
 
 @app.route('/admin/events/create')

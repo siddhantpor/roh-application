@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Volunteer Hours · Rays of Hope</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+
+    <div class="header-row">
+      <a href="/admin/events" class="button button-shadow square-button">&lt;</a>
+      <h1 class="header text-center">Volunteer Hours</h1>
+    </div>
+
+    <div>
+      <form method="get" id="date-filter">
+        <div class="create-event-card-row">
+          <label class="create-event-card">
+            <strong>Start Date</strong>
+            <input type="date" name="start_date" id="start_date" value="{{ start_date or '' }}">
+          </label>
+
+          <label class="create-event-card">
+            <strong>End Date</strong>
+            <input type="date" name="end_date" id="end_date" value="{{ end_date or '' }}">
+          </label>
+        </div>
+        <button type="button" id="clear-filters" class="button button-shadow">Clear filters</button>
+      </form>
+    </div>
+
+    <div id="member-hours">
+      <p class="text-gray">Showing:
+        {% if start_date and end_date %}
+          {{ start_date | format_date }} – {{ end_date | format_date }}
+        {% elif start_date %}
+          On or after {{ start_date | format_date }}
+        {% elif end_date %}
+          On or before {{ end_date | format_date }}
+        {% else %}
+          All time
+        {% endif %}
+      </p>
+      <p class="text-gray">Members with attendance records</p>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Member</th>
+              <th scope="col">Events attended</th>
+              <th scope="col">Approved hours</th>
+              <th scope="col">Pending hours</th>
+              <th scope="col">Missing checkouts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for member in members %}
+              <tr>
+                <td>
+                  <a href="/admin/hours/{{ member.user_id }}?start_date={{ (start_date or '') | urlencode }}&amp;end_date={{ (end_date or '') | urlencode }}">{{ member.name }}</a>
+                  <br>{{ member.email }}
+                </td>
+                <td>{{ member.events }}</td>
+                <td>{{ member.approved_hours | round(2) }}</td>
+                <td>{{ member.pending_hours | round(2) }}</td>
+                <td>{{ member.missing_checkouts }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5">No attendance records match these dates.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const startDate = document.querySelector('#start_date');
+      const endDate = document.querySelector('#end_date');
+
+      async function updateHours() {
+        if (startDate.value && endDate.value && startDate.value > endDate.value) return;
+
+        const params = new URLSearchParams({
+          start_date: startDate.value,
+          end_date: endDate.value
+        });
+
+        const response = await fetch(`/admin/hours?${params}`);
+        if (!response.ok) return;
+        const html = await response.text();
+        const page = new DOMParser().parseFromString(html, 'text/html');
+        document.querySelector('#member-hours').innerHTML =
+          page.querySelector('#member-hours').innerHTML;
+      }
+
+      startDate.addEventListener('change', updateHours);
+      endDate.addEventListener('change', updateHours);
+      document.querySelector('#date-filter').addEventListener('submit', event => {
+        event.preventDefault();
+        updateHours();
+      });
+      document.querySelector('#clear-filters').addEventListener('click', () => {
+        startDate.value = '';
+        endDate.value = '';
+        updateHours();
+      });
+    </script>
+
+    {% include 'footer.html' %}
+  </body>
+</html>
