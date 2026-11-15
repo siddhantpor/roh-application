@@ -71,6 +71,7 @@ def admin_volunteer_hours():
     auth.authenticate_admin()
     start_date = flask.request.args.get('start_date') or None
     end_date = flask.request.args.get('end_date') or None
+    search = flask.request.args.get('search', '').strip()
     members = {}
     for record in database.get_admin_hours(start_date, end_date):
         user_id = record['user_id']
@@ -92,8 +93,12 @@ def admin_volunteer_hours():
             member['pending_hours'] += record['hours'] or 0
 
     members = sorted(members.values(), key=lambda member: member['name'].lower())
+    if search:
+        members = [member for member in members
+                   if search.lower() in member['name'].lower()
+                   or search.lower() in member['email'].lower()]
     return flask.render_template('hours/admin_hours.html', members=members,
-                                 start_date=start_date, end_date=end_date)
+                                 start_date=start_date, end_date=end_date, search=search)
 
 
 @app.route('/admin/hours/<int:user_id>')
@@ -104,6 +109,7 @@ def admin_member_hours(user_id):
         flask.abort(404)
     start_date = flask.request.args.get('start_date') or None
     end_date = flask.request.args.get('end_date') or None
+    search = flask.request.args.get('search', '').strip()
     attendance = database.get_admin_hours(start_date, end_date, user_id)
     approved_hours = sum(record['hours'] or 0 for record in attendance
                          if record['approved'])
@@ -113,7 +119,7 @@ def admin_member_hours(user_id):
     return flask.render_template('hours/admin_member_hours.html',
         member=member, attendance=attendance, approved_hours=approved_hours,
         pending_hours=pending_hours, missing_checkouts=missing_checkouts,
-        start_date=start_date, end_date=end_date)
+        start_date=start_date, end_date=end_date, search=search)
 
 
 @app.route('/admin/events/create')

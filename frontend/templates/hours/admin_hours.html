@@ -15,6 +15,10 @@
 
     <div>
       <form method="get" id="date-filter">
+        <label class="create-event-card">
+          <strong>Member</strong>
+          <input type="search" name="search" id="member-search" placeholder="Name or email" value="{{ search }}">
+        </label>
         <div class="create-event-card-row">
           <label class="create-event-card">
             <strong>Start Date</strong>
@@ -59,7 +63,7 @@
             {% for member in members %}
               <tr>
                 <td>
-                  <a href="/admin/hours/{{ member.user_id }}?start_date={{ (start_date or '') | urlencode }}&amp;end_date={{ (end_date or '') | urlencode }}">{{ member.name }}</a>
+                  <a href="/admin/hours/{{ member.user_id }}?start_date={{ (start_date or '') | urlencode }}&amp;end_date={{ (end_date or '') | urlencode }}&amp;search={{ search | urlencode }}">{{ member.name }}</a>
                   <br>{{ member.email }}
                 </td>
                 <td>{{ member.events }}</td>
@@ -68,7 +72,7 @@
                 <td>{{ member.missing_checkouts }}</td>
               </tr>
             {% else %}
-              <tr><td colspan="5">No attendance records match these dates.</td></tr>
+              <tr><td colspan="5">No attendance records match these filters.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -78,13 +82,15 @@
     <script>
       const startDate = document.querySelector('#start_date');
       const endDate = document.querySelector('#end_date');
+      const memberSearch = document.querySelector('#member-search');
 
       async function updateHours() {
         if (startDate.value && endDate.value && startDate.value > endDate.value) return;
 
         const params = new URLSearchParams({
           start_date: startDate.value,
-          end_date: endDate.value
+          end_date: endDate.value,
+          search: memberSearch.value
         });
 
         const response = await fetch(`/admin/hours?${params}`);
@@ -97,6 +103,7 @@
 
       startDate.addEventListener('change', updateHours);
       endDate.addEventListener('change', updateHours);
+      memberSearch.addEventListener('input', updateHours);
       document.querySelector('#date-filter').addEventListener('submit', event => {
         event.preventDefault();
         updateHours();
@@ -104,6 +111,7 @@
       document.querySelector('#clear-filters').addEventListener('click', () => {
         startDate.value = '';
         endDate.value = '';
+        memberSearch.value = '';
         updateHours();
       });
     </script>
