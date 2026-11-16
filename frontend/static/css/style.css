@@ -224,6 +224,11 @@ input, textarea {
   inset: 0;
 }
 
+.event-card .review-hours-link {
+  position: relative;
+  z-index: 1;
+}
+
 .attendee-stats {
   display: flex;
   gap: 8px;
@@ -350,7 +355,7 @@ input, textarea {
 .site-nav-button { min-height: 40px; border: 1px solid rgb(0 0 0 / 0.1); }
 .site-nav-button:hover { background: var(--yellow); }
 
-/* Authentication screens; event dashboard styling remains with the team. */
+/* Authentication screens */
 .content { max-width: 960px; margin: 32px auto; padding: 0 16px; }
 .auth-layout { max-width: 480px; }
 .auth-card p { line-height: 1.6; }
