@@ -173,13 +173,13 @@ def add_rsvp(user_id, event_id, accepted, time):
 def get_event_rsvps(event_id):
     with _get_pool().connection() as connection:
         rows = connection.execute('''
-            SELECT a.user_id, a.email, latest.accepted
+            SELECT a.user_id, a.display_name, latest.accepted
             FROM accounts a
             LEFT JOIN (SELECT DISTINCT ON (user_id) user_id, accepted FROM rsvps
                        WHERE event_id = %s ORDER BY user_id, time DESC) latest
                 ON latest.user_id = a.user_id
             WHERE a.approved = true AND a.is_admin IS NOT TRUE
-            ORDER BY a.email
+            ORDER BY a.display_name
             ''', [event_id]).fetchall()
     statuses = {True: 'Attending', False: 'Not Attending', None: 'Pending'}
     return [{'user_id': row[0], 'name': row[1], 'status': statuses[row[2]]}

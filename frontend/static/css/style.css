@@ -224,11 +224,6 @@ input, textarea {
   inset: 0;
 }
 
-.event-card .review-hours-link {
-  position: relative;
-  z-index: 1;
-}
-
 .attendee-stats {
   display: flex;
   gap: 8px;
