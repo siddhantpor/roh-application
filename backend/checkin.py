@@ -216,10 +216,7 @@ def handle_admin_codes(event_id):
         flask.abort(404)
 
     # Replaces both codes; existing check-in records are unaffected.
-    checkin_code = _generate_code()
-    checkout_code = _generate_code()
-    while checkout_code == checkin_code:
-        checkout_code = _generate_code()
+    checkin_code, checkout_code = generate_code_pair()
     database.set_event_codes(event_id, checkin_code, checkout_code)
 
     return flask.redirect(flask.url_for('admin_codes', event_id=event_id))
@@ -456,6 +453,17 @@ def _add_display_fields(record):
     record['approved'] = (record['checkin_approved']
         and record['checkout_approved'])
     return record
+
+#-----------------------------------------------------------------------
+
+def generate_code_pair():
+
+    # Two distinct codes: (check-in, check-out).
+    checkin_code = _generate_code()
+    checkout_code = _generate_code()
+    while checkout_code == checkin_code:
+        checkout_code = _generate_code()
+    return checkin_code, checkout_code
 
 #-----------------------------------------------------------------------
 
