@@ -23,6 +23,7 @@ def init(app):
     app.add_url_rule('/logout', view_func=logout, methods=['POST'])
     app.add_url_rule('/membership', view_func=membership)
     app.add_url_rule('/loggedout', view_func=loggedout)
+    app.add_url_rule('/my-profile', view_func=my_profile)
 
     @app.context_processor
     def auth_context():
@@ -99,6 +100,11 @@ def membership():
 
 def loggedout():
     return flask.render_template('loggedout.html')
+
+
+def my_profile():
+    authenticate()
+    return flask.render_template('my_profile.html')
 
 
 def get_user():
