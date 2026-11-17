@@ -192,6 +192,8 @@ def save_event(event_id=None):
         if event is None:
             event_id = database.add_event(form['date'], form['start_time'], form['end_time'],
                 form['title'], form['description'], form['location'], url, public_id)
+            # New events get their check-in/check-out codes right away.
+            database.set_event_codes(event_id, *checkin.generate_code_pair())
         else:
             database.update_event(event_id, form['date'], form['start_time'], form['end_time'],
                 form['title'], form['description'], form['location'], url, public_id)
