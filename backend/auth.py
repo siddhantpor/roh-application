@@ -24,6 +24,7 @@ def init(app):
     app.add_url_rule('/membership', view_func=membership)
     app.add_url_rule('/loggedout', view_func=loggedout)
     app.add_url_rule('/my-profile', view_func=my_profile)
+    app.add_url_rule('/profile', view_func=profile, methods=['GET', 'POST'])
 
     @app.context_processor
     def auth_context():
@@ -72,11 +73,12 @@ def callback():
         flask.abort(403, 'Verify your email address with Auth0 before logging in.')
     user = database.link_auth0_user(
         userinfo['sub'], userinfo['email'].strip().lower(),
-        userinfo.get('name') or userinfo['email'],
         userinfo['email'].strip().lower() in flask.current_app.config['ADMIN_EMAILS'],
     )
     flask.session.permanent = True
     flask.session.update(user_id=user['user_id'], auth0_sub=userinfo['sub'])
+    if not user['display_name']:
+        return flask.redirect('/profile')
     if not user['is_admin'] and not user['approved']:
         return flask.redirect(flask.url_for('membership'))
     return flask.redirect(next_url)
@@ -105,6 +107,16 @@ def loggedout():
 def my_profile():
     authenticate()
     return flask.render_template('my_profile.html')
+
+
+def profile():
+    authenticate()
+    user = get_user()
+    if flask.request.method == 'POST':
+        display_name = flask.request.form['display_name'].strip()
+        database.set_display_name(user['user_id'], display_name)
+        return flask.redirect('/')
+    return flask.render_template('profile.html', display_name=user['display_name'] or '')
 
 
 def get_user():
@@ -136,9 +148,12 @@ def is_admin():
 
 
 def authenticate():
-    if get_user() is None:
+    user = get_user()
+    if user is None:
         next_url = flask.request.full_path.rstrip('?') if flask.request.method == 'GET' else '/'
         flask.abort(flask.redirect(flask.url_for('login', next=next_url)))
+    if not user['display_name'] and flask.request.endpoint != 'profile':
+        flask.abort(flask.redirect('/profile'))
 
 
 def authenticate_admin():
