@@ -14,13 +14,32 @@
       <a href="/admin/hours" class="button button-shadow home-button">Volunteer Hours</a>
     </div>
 
-    <p class="caption section-pill">Events</p>
+    <p class="section-pill">Events</p>
 
-    <div class="button-row">
-      <a href="/admin/events?tab=upcoming" class="button {{ 'button-green' if tab == 'upcoming' else 'button-shadow' }}" {% if tab == 'upcoming' %}aria-current="page"{% endif %}>Current &amp; Upcoming</a>
-      <a href="/admin/events?tab=past" class="button {{ 'button-green' if tab == 'past' else 'button-shadow' }}" {% if tab == 'past' %}aria-current="page"{% endif %}>Past</a>
-      <a href="/admin/events?tab=pending" class="button {{ 'button-green' if tab == 'pending' else 'button-shadow' }}" {% if tab == 'pending' %}aria-current="page"{% endif %}>Pending Hours Approval</a>
-    </div>
+    <nav class="event-tabs"  role="tablist" aria-label="Event lists">
+      <a
+        href="/admin/events?tab=upcoming"
+        class="event-tab tab-shadow {{ 'active' if tab == 'upcoming' else '' }}"
+        role="tab"
+        {% if tab == 'upcoming' %}aria-current="page"{% endif %}
+      >Current &amp; Upcoming</a>
+
+      <a
+        href="/admin/events?tab=past"
+        class="event-tab tab-shadow {{ 'active' if tab == 'past' else '' }}"
+        role="tab"
+        {% if tab == 'past' %}aria-current="page"{% endif %}
+      >Past</a>
+
+      <a
+        href="/admin/events?tab=pending"
+        class="event-tab tab-shadow {{ 'active' if tab == 'pending' else '' }}"
+        role="tab"
+        {% if tab == 'pending' %}aria-current="page"{% endif %}
+      >Pending Hours Approval</a>
+</nav>
+    
+    <br>
 
     {% for event in admin_events %}
       <div class="event-card">

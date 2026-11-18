@@ -124,6 +124,11 @@ input, textarea {
   box-shadow: 2px 2px 4px rgb(0 0 0 / 0.25);
 }
 
+.tab-shadow {
+  border: 1px solid rgb(0 0 0 / 0.1);
+  box-shadow: 2px 0px 4px rgb(0 0 0 / 0.25);
+}
+
 .home-button {
   height: 55px;
 }
@@ -139,6 +144,30 @@ input, textarea {
   display: flex;
   justify-content: center;
   gap: 20px;
+}
+.event-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.1);
+}
+
+.event-tab {
+  padding: 10px 16px;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  color: var(--dark-gray);
+  text-decoration: none;
+}
+
+.event-tab.active {
+  position: relative;
+  top: 1px; /* covers the row's bottom line under the active tab */
+  background: var(--green);
+  color: var(--black);
+  font-weight: 700;
 }
 
 .event-card-button {
@@ -160,6 +189,8 @@ input, textarea {
 .button-green {
   background: var(--green);
 }
+
+
 
 .green-card {
   height: 68px;
