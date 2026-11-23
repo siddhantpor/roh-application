@@ -532,3 +532,43 @@ def add_post(author_id, post_title, body):
         return connection.execute(
             'INSERT INTO posts (author_id, post_title, body) VALUES (%s, %s, %s) RETURNING post_id',
             [author_id, post_title, body]).fetchone()[0]
+
+
+def get_reaction_counts(post_id=None):
+    with _get_pool().connection() as connection:
+        if post_id is None:
+            rows = connection.execute('''
+                SELECT post_id, reaction, COUNT(*) FROM post_reactions
+                GROUP BY post_id, reaction
+            ''').fetchall()
+        else:
+            rows = connection.execute('''
+                SELECT post_id, reaction, COUNT(*) FROM post_reactions
+                WHERE post_id = %s GROUP BY post_id, reaction
+            ''', [post_id]).fetchall()
+    counts = {}
+    for post_id, reaction, count in rows:
+        counts.setdefault(post_id, {})[reaction] = count
+    return counts
+
+
+def get_user_reactions(user_id):
+    with _get_pool().connection() as connection:
+        rows = connection.execute(
+            'SELECT post_id, reaction FROM post_reactions WHERE user_id = %s',
+            [user_id]).fetchall()
+    return dict(rows)
+
+
+def toggle_reaction(post_id, user_id, reaction):
+    with _get_pool().connection() as connection:
+        removed = connection.execute('''
+            DELETE FROM post_reactions
+            WHERE post_id = %s AND user_id = %s AND reaction = %s
+        ''', [post_id, user_id, reaction]).rowcount
+        if not removed:
+            connection.execute('''
+                INSERT INTO post_reactions (post_id, user_id, reaction) VALUES (%s, %s, %s)
+                ON CONFLICT (post_id, user_id)
+                DO UPDATE SET reaction = EXCLUDED.reaction, reacted_at = now()
+            ''', [post_id, user_id, reaction])
