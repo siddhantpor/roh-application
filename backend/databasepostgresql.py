@@ -496,3 +496,21 @@ def set_membership(user_id, approved):
               AND auth0_sub IS NOT NULL
         ''', [approved, False, user_id])
         return cursor.rowcount == 1
+
+
+def get_posts():
+    with _get_pool().connection() as connection:
+        rows = connection.execute('''
+            SELECT p.post_id, p.post_title, p.body, p.created_at, a.display_name
+            FROM posts p JOIN accounts a ON a.user_id = p.author_id
+            ORDER BY p.created_at DESC
+        ''').fetchall()
+    return [{'post_id': row[0], 'post_title': row[1], 'body': row[2],
+             'created_at': row[3], 'author': row[4]} for row in rows]
+
+
+def add_post(author_id, post_title, body):
+    with _get_pool().connection() as connection:
+        return connection.execute(
+            'INSERT INTO posts (author_id, post_title, body) VALUES (%s, %s, %s) RETURNING post_id',
+            [author_id, post_title, body]).fetchone()[0]

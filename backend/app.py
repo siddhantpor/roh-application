@@ -10,6 +10,7 @@ from flask_wtf.csrf import CSRFProtect
 
 import auth
 import checkin
+import communityboard
 import databasepostgresql as database
 import posters
 import utils
@@ -45,6 +46,7 @@ database.init_app(app)
 CSRFProtect(app)
 auth.init(app)
 checkin.init(app)
+communityboard.init(app)
 utils.init(app)
 
 
