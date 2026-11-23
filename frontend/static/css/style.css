@@ -419,3 +419,5 @@ th, td { padding: 10px; text-align: left; vertical-align: top; }
   .event-card .event-card-button ~ .text-gray,
   .event-card .event-card-button ~ .header-bold { padding-right: 100px; }
 }
+
+.post-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }

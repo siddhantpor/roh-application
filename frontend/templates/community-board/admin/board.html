@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Community Board · Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <main class="content">
+      <h1 class="header-bold page-title">Community Board</h1>
+      <div class="button-row">
+        <a href="{{ url_for('admin_create_post') }}" class="button button-shadow home-button">Create Post</a>
+      </div>
+      <br>
+      {% for post in posts %}
+        {% include 'community-board/post_card.html' %}
+      {% else %}
+        <p class="text-gray">No posts yet.</p>
+      {% endfor %}
+    </main>
+    {% include 'footer.html' %}
+  </body>
+</html>

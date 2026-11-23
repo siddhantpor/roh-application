@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create Post · Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <main class="content">
+      <div class="header-row">
+        <a href="{{ url_for('community_board') }}" class="button button-shadow square-button">&lt;</a>
+        <h1 class="header-bold page-title">Create Post</h1>
+      </div>
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="create-event-card">
+          <strong>Title <span class="text-red">*</span></strong>
+          <input type="text" name="post_title" placeholder="e.g., Thank you for a great food drive!" required>
+        </label>
+        <label class="create-event-card">
+          <strong>Post <span class="text-red">*</span></strong>
+          <textarea name="body" placeholder="Share an update with the members." required></textarea>
+        </label>
+        <button type="submit" class="button create-event-button button-yellow">Publish Post</button>
+      </form>
+    </main>
+    {% include 'footer.html' %}
+  </body>
+</html>
