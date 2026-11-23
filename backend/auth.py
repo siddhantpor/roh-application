@@ -23,7 +23,7 @@ def init(app):
     app.add_url_rule('/logout', view_func=logout, methods=['POST'])
     app.add_url_rule('/membership', view_func=membership)
     app.add_url_rule('/loggedout', view_func=loggedout)
-    app.add_url_rule('/my-profile', view_func=my_profile)
+    app.add_url_rule('/my-profile', view_func=my_profile, methods=['GET', 'POST'])
     app.add_url_rule('/profile', view_func=profile, methods=['GET', 'POST'])
 
     @app.context_processor
@@ -106,6 +106,13 @@ def loggedout():
 
 def my_profile():
     authenticate()
+    if flask.request.method == 'POST':
+        display_name = flask.request.form['display_name'].strip()
+        if not display_name or len(display_name) > 100:
+            return flask.redirect(flask.url_for('my_profile'))
+        database.set_display_name(get_user()['user_id'], display_name)
+        flask.flash('Name updated.')
+        return flask.redirect(flask.url_for('my_profile'))
     return flask.render_template('my_profile.html')
 
 
@@ -114,6 +121,8 @@ def profile():
     user = get_user()
     if flask.request.method == 'POST':
         display_name = flask.request.form['display_name'].strip()
+        if not display_name or len(display_name) > 100:
+            return flask.redirect(flask.url_for('profile'))
         database.set_display_name(user['user_id'], display_name)
         return flask.redirect('/')
     return flask.render_template('profile.html', display_name=user['display_name'] or '')

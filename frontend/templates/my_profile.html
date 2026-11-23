@@ -9,7 +9,16 @@
   {% include 'header.html' %}
   <main class="content auth-layout auth-card">
     <h1>My Profile</h1>
-    <p>Name: {{ current_user.display_name or 'Not provided' }}</p>
+    <form action="/my-profile" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="create-event-card">
+        Name
+        <input name="display_name" type="text"
+               value="{{ current_user.display_name or '' }}" autocomplete="name"
+               maxlength="100" pattern=".*\S.*" title="Name can't be blank." required>
+      </label>
+      <button type="submit" class="action-button action-primary">Save</button>
+    </form>
     <p>Email: {{ current_user.email }}</p>
     <form action="/logout" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
