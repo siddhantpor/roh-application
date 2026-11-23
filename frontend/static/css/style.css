@@ -245,6 +245,11 @@ input, textarea {
   padding-right: 120px;
 }
 
+.event-card .edit-button ~ .text-gray,
+.event-card .edit-button ~ .header-bold {
+  padding-right: 46px;
+}
+
 .event-card .card-link {
   text-decoration: none;
 }

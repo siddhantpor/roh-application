@@ -501,12 +501,30 @@ def set_membership(user_id, approved):
 def get_posts():
     with _get_pool().connection() as connection:
         rows = connection.execute('''
-            SELECT p.post_id, p.post_title, p.body, p.created_at, a.display_name
+            SELECT p.post_id, p.post_title, p.body, p.created_at, p.edited_at, a.display_name
             FROM posts p JOIN accounts a ON a.user_id = p.author_id
             ORDER BY p.created_at DESC
         ''').fetchall()
     return [{'post_id': row[0], 'post_title': row[1], 'body': row[2],
-             'created_at': row[3], 'author': row[4]} for row in rows]
+             'created_at': row[3], 'edited_at': row[4], 'author': row[5]} for row in rows]
+
+
+def get_post(post_id):
+    with _get_pool().connection() as connection:
+        row = connection.execute(
+            'SELECT post_id, post_title, body FROM posts WHERE post_id = %s',
+            [post_id]).fetchone()
+    if row is None:
+        return None
+    return {'post_id': row[0], 'post_title': row[1], 'body': row[2]}
+
+
+def update_post(post_id, post_title, body):
+    with _get_pool().connection() as connection:
+        connection.execute('''
+            UPDATE posts SET post_title = %s, body = %s, edited_at = now()
+            WHERE post_id = %s AND (post_title, body) IS DISTINCT FROM (%s, %s)
+        ''', [post_title, body, post_id, post_title, body])
 
 
 def add_post(author_id, post_title, body):
