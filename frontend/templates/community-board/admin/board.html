@@ -14,7 +14,17 @@
       </div>
       <br>
       {% for post in posts %}
-        {% include 'community-board/post_card.html' %}
+        <div class="event-card" id="post-{{ post.post_id }}">
+          <a href="{{ url_for('admin_edit_post', post_id=post.post_id) }}" class="button square-button button-green edit-button"><img src="/static/images/edit.svg" alt="Edit post"></a>
+          <p class="text-gray">
+            {{ post.author }} · {{ post.created_at | format_date }}, {{ post.created_at.strftime('%H:%M') | format_time }}
+            {% if post.edited_at %}
+              · Edited {{ post.edited_at | format_date }}, {{ post.edited_at.strftime('%H:%M') | format_time }}
+            {% endif %}
+          </p>
+          <p class="header-bold">{{ post.post_title }}</p>
+          <p class="post-body">{{ post.body }}</p>
+        </div>
       {% else %}
         <p class="text-gray">No posts yet.</p>
       {% endfor %}
