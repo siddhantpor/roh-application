@@ -3,6 +3,7 @@ import flask
 import auth
 import checkin
 import databasepostgresql as database
+import posters
 
 # TODO: Show administrators which members have reacted to a post and when (e.g., for roll call).
 
@@ -68,10 +69,22 @@ def admin_save_post(post_id=None):
     if flask.request.method == 'POST':
         post_title = flask.request.form.get('post_title', '').strip()
         body = flask.request.form.get('body', '').strip()
-        if not post_title or not body:
+        files = []
+        if post is None:
+            files = [file for file in flask.request.files.getlist('images') if file.filename]
+        if not post_title or not (body or files or (post and post['images'])):
             flask.abort(400)
         if post is None:
-            post_id = database.add_post(auth.get_user()['user_id'], post_title, body)
+            images = []
+            try:
+                for file in files:
+                    url, public_id = posters.upload(file, folder='roh/posts')
+                    images.append({'image_url': url, 'public_id': public_id})
+                post_id = database.add_post(auth.get_user()['user_id'], post_title, body, images)
+            except Exception:
+                for image in images:
+                    posters.delete(image['public_id'])
+                raise
             flask.flash('Post published.')
         else:
             database.update_post(post_id, post_title, body)
