@@ -3,6 +3,7 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Community Board · Rays of Hope</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.css">
     <link rel="stylesheet" href="/static/css/style.css">
   </head>
   <body>
@@ -20,6 +21,7 @@
           <p class="header-bold">{{ post.post_title }}</p>
           {# TODO: For long posts, render a 'See More/Less' toggle? #}
           <p class="post-body">{{ post.body }}</p>
+          {% include 'community-board/images.html' %}
           {% include 'community-board/reactions.html' %}
         </div>
       {% else %}
@@ -27,6 +29,19 @@
       {% endfor %}
     </main>
     {% include 'footer.html' %}
+    <script src="https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.js"></script>
+    <script>
+      document.querySelectorAll('.post-images').forEach((element) => {
+        new Swiper(element.querySelector('.post-image-slider'), {
+          spaceBetween: 16,
+          navigation: {
+            prevEl: element.querySelector('.swiper-button-prev'),
+            nextEl: element.querySelector('.swiper-button-next'),
+          },
+          pagination: { el: element.querySelector('.swiper-pagination'), clickable: true },
+        });
+      });
+    </script>
     <script>
       document.addEventListener('submit', async (event) => {
         const row = event.target.closest('.reactions');

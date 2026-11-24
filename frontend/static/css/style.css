@@ -427,6 +427,32 @@ th, td { padding: 10px; text-align: left; vertical-align: top; }
 
 .post-body { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 
+.post-image {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  max-height: 480px;
+  object-fit: contain;
+  background: var(--background);
+  border-radius: 8px;
+}
+
+.post-images { width: 100%; min-width: 0; }
+.post-image-slider .swiper-button-prev,
+.post-image-slider .swiper-button-next {
+  width: 44px;
+  height: 44px;
+  margin-top: -22px;
+  padding: 14px;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.85);
+  color: var(--black);
+  --swiper-navigation-size: 16px;
+}
+.post-images .swiper-pagination { position: static; margin-top: 8px; --swiper-pagination-color: var(--black); }
+
 .post-image-previews {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
