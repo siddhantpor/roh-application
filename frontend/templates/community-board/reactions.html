@@ -1,0 +1,18 @@
+<div class="reactions" id="reactions-{{ post.post_id }}">
+  <details class="reaction-picker">
+    {# TODO: Replace 🙂 with another image? Maybe a + sign or a black-and-white :) ? #}
+    <summary aria-label="Add or remove reactions">🙂</summary>
+    <form method="post" action="{{ url_for('react_to_post', post_id=post.post_id) }}" class="reaction-menu button-shadow">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for name, emoji in reactions.items() %}
+        <button type="submit" name="reaction" value="{{ name }}" class="reaction-option {{ 'selected' if name == post.my_reaction }}" aria-label="{{ name | replace('_', ' ') }}">{{ emoji }}</button>
+      {% endfor %}
+    </form>
+  </details>
+  <form method="post" action="{{ url_for('react_to_post', post_id=post.post_id) }}" class="reaction-pills">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for reaction in post.reactions %}
+      <button type="submit" name="reaction" value="{{ reaction.name }}" class="reaction-pill {{ 'mine' if reaction.mine }}">{{ reaction.emoji }} {{ reaction.count }}</button>
+    {% endfor %}
+  </form>
+</div>
