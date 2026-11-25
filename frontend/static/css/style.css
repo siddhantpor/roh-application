@@ -475,6 +475,9 @@ th, td { padding: 10px; text-align: left; vertical-align: top; }
 
 .post-image-button[hidden] { display: none; }
 
+.post-image-remove { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.post-image-remove input[type="checkbox"] { width: auto; height: auto; }
+
 .reactions {
   display: flex;
   flex-wrap: wrap;

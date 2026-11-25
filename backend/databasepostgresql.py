@@ -770,15 +770,38 @@ def _get_post_images(connection, post_id=None):
     return images
 
 
-def update_post(post_id, post_title, body):
+def update_post(post_id, post_title, body, images=(), removed_image_ids=()):
     with _get_pool().connection() as connection:
         connection.execute(
             """
             UPDATE posts SET post_title = %s, body = %s, edited_at = now()
-            WHERE post_id = %s AND (post_title, body) IS DISTINCT FROM (%s, %s)
+            WHERE post_id = %s AND ((post_title, body) IS DISTINCT FROM (%s, %s) OR %s)
         """,
-            [post_title, body, post_id, post_title, body],
+            [post_title, body, post_id, post_title, body, bool(images or removed_image_ids)],
         )
+        removed = []
+        if removed_image_ids:
+            removed = connection.execute(
+                """
+                DELETE FROM post_images WHERE post_id = %s AND image_id = ANY(%s)
+                RETURNING public_id
+                """,
+                [post_id, list(removed_image_ids)],
+            ).fetchall()
+        if images:
+            position = connection.execute(
+                "SELECT COALESCE(MAX(position), -1) + 1 FROM post_images WHERE post_id = %s",
+                [post_id],
+            ).fetchone()[0]
+            for offset, image in enumerate(images):
+                connection.execute(
+                    """
+                    INSERT INTO post_images (post_id, image_url, public_id, position)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    [post_id, image["image_url"], image["public_id"], position + offset],
+                )
+    return [row[0] for row in removed]
 
 
 def add_post(author_id, post_title, body, images=()):

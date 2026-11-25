@@ -22,22 +22,35 @@
           <strong>Post</strong>
           <textarea name="body" placeholder="Share an update with the members.">{{ post.body if post else '' }}</textarea>
         </label>
-        {% if not post %}
+        {% if post and post.images %}
           <div class="create-event-card">
-            <label for="post-images"><strong>Images (optional)</strong></label>
-            <input id="post-images" type="file" name="images" accept=".jpg,.jpeg,.png,.webp" multiple>
-            <button type="button" id="add-images" class="button button-shadow post-image-button" hidden>Add images</button>
-            <p id="image-count" class="subtext" aria-live="polite"></p>
-            <div id="image-previews" class="post-image-previews"></div>
-            <p class="subtext">Add photos in batches; earlier selections stay attached. JPEG, PNG, or WebP. Up to 5 MB per image; keep the total upload under 6 MB.</p>
+            <strong>Current images</strong>
+            <div class="post-image-previews">
+              {% for image in post.images %}
+                <div class="post-image-preview">
+                  <img src="{{ image.image_url }}" alt="Current image {{ loop.index }}">
+                  <label class="post-image-remove">
+                    <input type="checkbox" name="remove_images" value="{{ image.image_id }}">
+                    Remove on save
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
           </div>
         {% endif %}
+        <div class="create-event-card">
+          <label for="post-images"><strong>{{ 'Add images' if post else 'Images (optional)' }}</strong></label>
+          <input id="post-images" type="file" name="images" accept=".jpg,.jpeg,.png,.webp" multiple>
+          <button type="button" id="add-images" class="button button-shadow post-image-button" hidden>Add images</button>
+          <p id="image-count" class="subtext" aria-live="polite"></p>
+          <div id="image-previews" class="post-image-previews"></div>
+          <p class="subtext">JPEG, PNG, or WebP. Up to 5 MB per image; keep the total upload under 6 MB.</p>
+        </div>
         <p class="text-gray">Include post text, images, or both. A title is required.</p>
         <button type="submit" class="button create-event-button button-yellow">{{ 'Save Changes' if post else 'Publish Post' }}</button>
       </form>
     </main>
     {% include 'footer.html' %}
-    {% if not post %}
       <script>
         const imageInput = document.getElementById('post-images');
         const addImages = document.getElementById('add-images');
@@ -85,6 +98,5 @@
           updateImages();
         });
       </script>
-    {% endif %}
   </body>
 </html>
