@@ -3,6 +3,7 @@ import flask
 import auth
 import checkin
 import databasepostgresql as database
+import posters
 
 # TODO: Show administrators which members have reacted to a post and when (e.g., for roll call).
 
@@ -68,13 +69,30 @@ def admin_save_post(post_id=None):
     if flask.request.method == 'POST':
         post_title = flask.request.form.get('post_title', '').strip()
         body = flask.request.form.get('body', '').strip()
-        if not post_title or not body:
+        files = [file for file in flask.request.files.getlist('images') if file.filename]
+        removed_ids = flask.request.form.getlist('remove_images')
+        existing_images = post['images'] if post else []
+        removed_images = [image for image in existing_images if str(image['image_id']) in removed_ids]
+        remaining_images = [image for image in existing_images if str(image['image_id']) not in removed_ids]
+        if not post_title or not (body or files or remaining_images):
             flask.abort(400)
-        if post is None:
-            post_id = database.add_post(auth.get_user()['user_id'], post_title, body)
-            flask.flash('Post published.')
-        else:
-            database.update_post(post_id, post_title, body)
-            flask.flash('Post saved.')
+        images = []
+        deleted_ids = []
+        try:
+            for file in files:
+                url, public_id = posters.upload(file, folder='roh/posts')
+                images.append({'image_url': url, 'public_id': public_id})
+            if post is None:
+                post_id = database.add_post(auth.get_user()['user_id'], post_title, body, images)
+            else:
+                deleted_ids = database.update_post(post_id, post_title, body, images,
+                    [image['image_id'] for image in removed_images])
+        except Exception:
+            for image in images:
+                posters.delete(image['public_id'])
+            raise
+        for public_id in deleted_ids:
+            posters.delete(public_id)
+        flask.flash('Post saved.' if post else 'Post published.')
         return flask.redirect(flask.url_for('community_board', _anchor=f'post-{post_id}'))
     return flask.render_template('community-board/admin/create_post.html', post=post)
