@@ -32,10 +32,11 @@
           <input type="time" name="end_time" value="{{ values.get('end_time', '') }}" required>
         </label>
       </div>
-      <label class="create-event-card">
-        <strong>Location <span class="text-red">*</span></strong>
-        <input type="text" name="location" placeholder="e.g., Somerset, NJ" value="{{ values.get('location', '') }}" maxlength="300" required>
-      </label>
+      <div class="create-event-card location-field">
+        <label for="location-input"><strong>Location <span class="text-red">*</span></strong></label>
+        <input type="text" id="location-input" name="location" placeholder="e.g., Princeton Public Library" value="{{ values.get('location', '') }}" maxlength="300" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="location-suggestions" required>
+        <ul id="location-suggestions" class="location-suggestions" role="listbox" hidden></ul>
+      </div>
       <label class="create-event-card">
         <strong>Description</strong>
         <textarea name="description" placeholder="Tell volunteers about this event (what to expect, the dress code, etc.)" maxlength="10000">{{ values.get('description', '') or '' }}</textarea>
@@ -53,5 +54,56 @@
     </form>
     </main>
     {% include 'footer.html' %}
+    <script>
+      (function () {
+        var input = document.getElementById('location-input');
+        var list = document.getElementById('location-suggestions');
+        var timer = null, seq = 0, active = -1, items = [];
+
+        function close() { list.hidden = true; input.setAttribute('aria-expanded', 'false'); active = -1; }
+        function setActive(i) {
+          var els = list.children;
+          if (active >= 0 && els[active]) els[active].classList.remove('active');
+          active = i;
+          if (els[i]) { els[i].classList.add('active'); els[i].scrollIntoView({block: 'nearest'}); }
+        }
+        function pick(text) { input.value = text; close(); }
+        function render(results) {
+          items = results;
+          list.textContent = '';
+          if (!results.length) { close(); return; }
+          results.forEach(function (text) {
+            var li = document.createElement('li');
+            li.setAttribute('role', 'option');
+            li.textContent = text;
+            li.addEventListener('mousedown', function (e) { e.preventDefault(); pick(text); });
+            list.appendChild(li);
+          });
+          list.hidden = false;
+          input.setAttribute('aria-expanded', 'true');
+        }
+
+        input.addEventListener('input', function () {
+          clearTimeout(timer);
+          var q = input.value.trim();
+          if (q.length < 3) { seq++; close(); return; }
+          var mine = ++seq;
+          timer = setTimeout(function () {
+            fetch('/admin/places/search?q=' + encodeURIComponent(q), {credentials: 'same-origin'})
+              .then(function (r) { return r.ok ? r.json() : []; })
+              .then(function (results) { if (mine === seq) render(results); })
+              .catch(function () {});
+          }, 300);
+        });
+        input.addEventListener('keydown', function (e) {
+          if (list.hidden) return;
+          if (e.key === 'ArrowDown') { e.preventDefault(); setActive((active + 1) % items.length); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((active - 1 + items.length) % items.length); }
+          else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(items[active]); }
+          else if (e.key === 'Escape') { close(); }
+        });
+        input.addEventListener('blur', close);
+      })();
+    </script>
   </body>
 </html>

@@ -12,6 +12,7 @@ import auth
 import checkin
 import communityboard
 import databasepostgresql as database
+import places
 import posters
 import utils
 
@@ -164,6 +165,12 @@ def admin_edit_event(event_id):
               'start_time': event['start_time'], 'end_time': event['end_time'],
               'location': event['event_locat'], 'description': event['event_descrip']}
     return flask.render_template('event-management/admin/create_event.html', event=event, values=values)
+
+
+@app.route('/admin/places/search')
+def admin_place_search():
+    auth.authenticate_admin()
+    return flask.jsonify(places.search(flask.request.args.get('q', '')))
 
 
 @app.route('/admin/events/create', methods=['POST'])

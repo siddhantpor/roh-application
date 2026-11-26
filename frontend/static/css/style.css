@@ -549,3 +549,10 @@ th, td { padding: 10px; text-align: left; vertical-align: top; }
   border-color: var(--dark-gray);
   background: var(--green);
 }
+
+/* Location autocomplete */
+.location-field { position: relative; }
+.location-suggestions { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; margin: 0; padding: 0; list-style: none;
+  background: #fff; border: 1px solid #ccc; border-radius: 8px; max-height: 260px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.location-suggestions li { padding: 10px 12px; cursor: pointer; }
+.location-suggestions li:hover, .location-suggestions li.active { background: #f2f2f2; }
