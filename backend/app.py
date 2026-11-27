@@ -220,6 +220,10 @@ def save_event(event_id=None):
         raise
     if event and event['graphic_public_id'] and event['graphic_public_id'] != public_id:
         posters.delete(event['graphic_public_id'])
+    if event is None:
+        notify.new_event(event_id)
+    elif _event_details_changed(event, form):
+        notify.event_changed(event_id)
     flask.flash('Event saved.')
     return flask.redirect(flask.url_for('admin_event_detail', event_id=event_id))
 
@@ -236,6 +240,16 @@ def _parse_pin(lat, lng):
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         flask.abort(400)
     return round(lat, 6), round(lng, 6)
+
+
+def _event_details_changed(event, form):
+    # don't spam people when the admin only swapped the poster
+    before = (event['event_date'], event['start_time'], event['end_time'],
+              event['event_title'], event['event_descrip'] or '', event['event_locat'] or '')
+    after = (form['date'], datetime.time.fromisoformat(form['start_time']).strftime('%H:%M'),
+             datetime.time.fromisoformat(form['end_time']).strftime('%H:%M'),
+             form['title'], form['description'], form['location'])
+    return before != after
 
 
 def _validate_event(form):

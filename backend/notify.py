@@ -109,3 +109,24 @@ def account_approved(user_id):
             'Your Rays of Hope volunteer account has been approved. You can now '
             'RSVP to events and check in to log your hours.\n\n' + _events_link() + '\n')
     send_email(account['email'], 'Your Rays of Hope account is approved', body)
+
+
+def new_event(event_id):
+    event = database.get_event(event_id)
+    if event is None:
+        return
+    body = ('A new volunteer event was just posted:\n\n' + _event_lines(event) +
+            '\n\nRSVP here: ' + _events_link() + '\n')
+    for person in database.get_members_to_notify('notify_new_event'):
+        send_email(person['email'], 'New event: ' + event['event_title'], body)
+
+
+def event_changed(event_id):
+    # only people who said yes to this event
+    event = database.get_event(event_id)
+    if event is None:
+        return
+    body = ('An event you RSVP\'d to was updated. Here are the current details:\n\n' +
+            _event_lines(event) + '\n\n' + _events_link() + '\n')
+    for person in database.get_rsvped_to_notify(event_id, 'notify_changes'):
+        send_email(person['email'], 'Updated: ' + event['event_title'], body)
