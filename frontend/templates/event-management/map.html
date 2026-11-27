@@ -1,0 +1,10 @@
+<div class="event-map">
+  <iframe title="Map of {{ event.event_locat }}" loading="lazy" referrerpolicy="no-referrer"
+    src="https://www.google.com/maps?q={{ event.event_locat | urlencode }}&amp;output=embed"></iframe>
+  <div class="button-row">
+    <a class="button button-shadow" target="_blank" rel="noopener"
+       href="https://www.google.com/maps/search/?api=1&amp;query={{ event.event_locat | urlencode }}">Google Maps</a>
+    <a class="button button-shadow" target="_blank" rel="noopener"
+       href="https://maps.apple.com/?q={{ event.event_locat | urlencode }}">Apple Maps</a>
+  </div>
+</div>
