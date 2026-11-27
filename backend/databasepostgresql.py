@@ -459,6 +459,16 @@ def update_event(event_id, event_date, start_time, end_time, event_title, event_
               graphic_link, graphic_public_id, event_id])
 
 
+def update_display_name(user_id, display_name):
+    with _get_pool().connection() as connection:
+        cursor = connection.execute('''
+            UPDATE accounts
+            SET display_name = %s
+            WHERE user_id = %s
+        ''', [display_name, user_id])
+        return cursor.rowcount == 1
+
+
 def add_event(event_date, start_time, end_time, event_title, event_descrip, event_locat,
                  graphic_link=None, graphic_public_id=None):
     with _get_pool().connection() as connection:
