@@ -5,6 +5,9 @@ Email goes out through SMTP2GO's http api. If SMTP2GO_API_KEY isn't set
 would have gone out. SMS is a stub for now, see send_sms.
 """
 import datetime
+import hmac
+import threading
+import zoneinfo
 
 import flask
 import requests
@@ -14,12 +17,23 @@ import databasepostgresql as database
 import utils
 
 SMTP2GO_URL = 'https://api.smtp2go.com/v3/email/send'
+LOCAL_TIMEZONE = zoneinfo.ZoneInfo('America/New_York')
+REMINDER_HOURS = 24
+# how often the lazy check in before_request is allowed to actually run
+LAZY_CHECK_SECONDS = 30 * 60
+_last_lazy_check = 0.0
+_lazy_lock = threading.Lock()
 
 
 def init(app):
     app.config['SMTP2GO_API_KEY'] = app.config.get('SMTP2GO_API_KEY', '')
     app.config['NOTIFY_FROM'] = app.config.get('NOTIFY_FROM', '')
+    app.config['TASKS_TOKEN'] = app.config.get('TASKS_TOKEN', '')
     app.add_url_rule('/my-profile/notifications', view_func=handle_prefs, methods=['POST'])
+    app.add_url_rule('/tasks/send-reminders', view_func=handle_send_reminders, methods=['POST'])
+    # it's called by curl, not a form, so no csrf token. the token header is the check instead
+    app.extensions['csrf'].exempt(handle_send_reminders)
+    app.before_request(_lazy_reminder_check)
 
 
 def prefs_for_profile(user_id):
@@ -142,3 +156,51 @@ def rsvp_confirmed(user_id, event_id):
             '\n\nWhen you get there, ask the coordinator for the check-in code and '
             'enter it on the events page to log your hours.\n' + _events_link() + '\n')
     send_email(account['email'], 'You\'re signed up for ' + event['event_title'], body)
+
+
+#-----------------------------------------------------------------------
+# Reminders. Render's free tier has no cron, so there's a route that a
+# github actions workflow pings every hour, and as a backup the app
+# checks on its own every so often when someone loads a page.
+#-----------------------------------------------------------------------
+
+def send_due_reminders():
+    # anything starting in the next REMINDER_HOURS that we haven't reminded yet.
+    # returns how many people got one.
+    now = datetime.datetime.now(LOCAL_TIMEZONE).replace(tzinfo=None)
+    until = now + datetime.timedelta(hours=REMINDER_HOURS)
+    count = 0
+    for person in database.get_reminders_due(now, until):
+        event = person['event']
+        body = ('Reminder: you RSVP\'d to an event that starts soon.\n\n' +
+                _event_lines(event) + '\n\nSee you there!\n' + _events_link() + '\n')
+        sms = 'Rays of Hope reminder: ' + event['event_title'] + ' is ' + _when(event)
+        _send(person, 'Tomorrow: ' + event['event_title'], body, sms)
+        database.add_reminder_sent(person['user_id'], event['event_id'],
+                                   datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None))
+        count += 1
+    return count
+
+
+def handle_send_reminders():
+    token = flask.current_app.config['TASKS_TOKEN']
+    given = flask.request.headers.get('X-Tasks-Token', '')
+    if not token or not hmac.compare_digest(token, given):
+        flask.abort(403)
+    return {'sent': send_due_reminders()}
+
+
+def _lazy_reminder_check():
+    global _last_lazy_check
+    if flask.request.path.startswith('/static') or flask.request.path.startswith('/tasks'):
+        return
+    now = datetime.datetime.now().timestamp()
+    with _lazy_lock:
+        if now - _last_lazy_check < LAZY_CHECK_SECONDS:
+            return
+        _last_lazy_check = now
+    try:
+        send_due_reminders()
+    except Exception as ex:
+        # never let this take down a normal page
+        flask.current_app.logger.warning('reminder check failed: %s', ex)

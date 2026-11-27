@@ -34,6 +34,7 @@ app.config.update(
     CLOUDINARY_API_SECRET=os.getenv('CLOUDINARY_API_SECRET', ''),
     SMTP2GO_API_KEY=os.getenv('SMTP2GO_API_KEY', ''),
     NOTIFY_FROM=os.getenv('NOTIFY_FROM', ''),
+    TASKS_TOKEN=os.getenv('TASKS_TOKEN', ''),
     SESSION_COOKIE_SAMESITE='Lax',
     SESSION_COOKIE_SECURE=os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true',
     PERMANENT_SESSION_LIFETIME=datetime.timedelta(hours=8),
