@@ -882,3 +882,138 @@ def toggle_reaction(post_id, user_id, reaction):
             """,
                 [post_id, user_id, reaction],
             )
+
+
+# -----------------------------------------------------------------------
+# Notifications
+# -----------------------------------------------------------------------
+
+NOTIFY_FLAGS = ("notify_new_event", "notify_rsvp", "notify_changes",
+                "notify_reminder", "notify_sms")
+
+
+def get_notify_prefs(user_id):
+    with _get_pool().connection() as connection:
+        row = connection.execute(
+            """
+            SELECT phone, notify_new_event, notify_rsvp, notify_changes,
+                   notify_reminder, notify_sms
+            FROM accounts WHERE user_id = %s
+        """,
+            [user_id],
+        ).fetchone()
+    if row is None:
+        return None
+    prefs = {"phone": row[0] or ""}
+    for i, flag in enumerate(NOTIFY_FLAGS):
+        prefs[flag] = bool(row[i + 1])
+    return prefs
+
+
+def set_notify_prefs(user_id, phone, flags):
+    # flags is a dict with the NOTIFY_FLAGS keys, missing ones count as off
+    with _get_pool().connection() as connection:
+        connection.execute(
+            """
+            UPDATE accounts SET phone = %s, notify_new_event = %s, notify_rsvp = %s,
+                   notify_changes = %s, notify_reminder = %s, notify_sms = %s
+            WHERE user_id = %s
+        """,
+            [phone or None] + [bool(flags.get(f)) for f in NOTIFY_FLAGS] + [user_id],
+        )
+
+
+def get_members_to_notify(flag):
+    # approved volunteers (not admins) who have this flag on
+    if flag not in NOTIFY_FLAGS:
+        raise ValueError(flag)
+    with _get_pool().connection() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT user_id, display_name, email, phone, notify_sms
+            FROM accounts
+            WHERE approved = TRUE AND COALESCE(is_admin, FALSE) = FALSE
+              AND {flag} = TRUE AND email IS NOT NULL
+        """
+        ).fetchall()
+    return _recipients(rows)
+
+
+def get_rsvped_to_notify(event_id, flag):
+    # people whose latest rsvp for this event is yes, and who have the flag on
+    if flag not in NOTIFY_FLAGS:
+        raise ValueError(flag)
+    with _get_pool().connection() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT a.user_id, a.display_name, a.email, a.phone, a.notify_sms
+            FROM (SELECT DISTINCT ON (user_id) user_id, accepted FROM rsvps
+                  WHERE event_id = %s ORDER BY user_id, time DESC) latest
+            JOIN accounts a ON a.user_id = latest.user_id
+            WHERE latest.accepted = TRUE AND a.approved = TRUE
+              AND COALESCE(a.is_admin, FALSE) = FALSE AND a.{flag} = TRUE
+        """,
+            [event_id],
+        ).fetchall()
+    return _recipients(rows)
+
+
+def _recipients(rows):
+    return [
+        {
+            "user_id": row[0],
+            "name": row[1] or row[2],
+            "email": row[2],
+            "phone": row[3] or "",
+            "notify_sms": bool(row[4]),
+        }
+        for row in rows
+    ]
+
+
+def get_reminders_due(start, end):
+    # rsvp'd (yes) events that start between start and end (local naive
+    # datetimes) where we haven't sent that person a reminder yet
+    with _get_pool().connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT a.user_id, a.display_name, a.email, a.phone, a.notify_sms,
+                   e.event_id, e.event_title, e.event_date, e.event_starttime,
+                   e.event_locat
+            FROM events e
+            JOIN (SELECT DISTINCT ON (user_id, event_id) user_id, event_id, accepted
+                  FROM rsvps ORDER BY user_id, event_id, time DESC) latest
+              ON latest.event_id = e.event_id
+            JOIN accounts a ON a.user_id = latest.user_id
+            WHERE latest.accepted = TRUE AND a.approved = TRUE
+              AND COALESCE(a.is_admin, FALSE) = FALSE AND a.notify_reminder = TRUE
+              AND (e.event_date + e.event_starttime) BETWEEN %s AND %s
+              AND NOT EXISTS (SELECT 1 FROM reminders_sent r
+                              WHERE r.user_id = a.user_id AND r.event_id = e.event_id)
+            ORDER BY e.event_date, e.event_starttime
+        """,
+            [start, end],
+        ).fetchall()
+    due = []
+    for row in rows:
+        person = _recipients([row[:5]])[0]
+        person["event"] = {
+            "event_id": row[5],
+            "event_title": row[6],
+            "event_date": _date_text(row[7]),
+            "start_time": _time_text(row[8]),
+            "event_locat": row[9],
+        }
+        due.append(person)
+    return due
+
+
+def add_reminder_sent(user_id, event_id, time):
+    with _get_pool().connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO reminders_sent (user_id, event_id, sent_at) VALUES (%s, %s, %s)
+            ON CONFLICT DO NOTHING
+        """,
+            [user_id, event_id, time],
+        )
