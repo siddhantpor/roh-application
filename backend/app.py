@@ -290,6 +290,8 @@ def update_membership(user_id):
         flask.abort(400, 'Choose a valid membership action.')
     if not database.set_membership(user_id, action == 'approve'):
         flask.abort(404, 'No eligible volunteer account was found.')
+    if action == 'approve':
+        notify.account_approved(user_id)
     flask.flash('Membership approved.' if action == 'approve' else
                 ('Membership declined.' if action == 'decline' else 'Membership access revoked.'))
     return flask.redirect('/admin/members')

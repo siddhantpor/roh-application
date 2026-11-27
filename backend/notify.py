@@ -95,3 +95,17 @@ def _event_lines(event):
 
 def _events_link():
     return flask.url_for('member_events', _external=True)
+
+#-----------------------------------------------------------------------
+
+def account_approved(user_id):
+    # always sent, there's no checkbox for this one. only happens once since
+    # the admin page only lets you approve a pending account
+    account = database.get_account(user_id)
+    if account is None or not account['email']:
+        return
+    name = account['display_name'] or 'there'
+    body = ('Hi ' + name + ',\n\n'
+            'Your Rays of Hope volunteer account has been approved. You can now '
+            'RSVP to events and check in to log your hours.\n\n' + _events_link() + '\n')
+    send_email(account['email'], 'Your Rays of Hope account is approved', body)
