@@ -14,11 +14,11 @@
     </div>
     <p>Approve verified accounts to join the organization. Revoking access keeps their records.</p>
     <div class="table-scroll">
-      <table>
+      <table class="members-table">
         <thead><tr><th scope="col">Account</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
         <tbody>
         {% for member in members %}
-          <tr>
+          <tr class="member-row">
             <td>{{ member.name }}<br>{{ member.email }}</td>
             <td>
               {% if member.is_admin %}Admin
@@ -32,9 +32,9 @@
                 <form action="{{ url_for('update_membership', user_id=member.user_id) }}" method="post">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   {% if member.approved %}
-                    <button name="action" value="revoke">Revoke access</button>
+                    <button name="action" value="revoke" class="button button-shadow button-red">Revoke access</button>
                   {% else %}
-                    <button name="action" value="approve">Approve</button>
+                    <button name="action" value="approve" class="button button-shadow button-green">Approve</button>
                     {% if member.pending %}<button name="action" value="decline">Reject</button>{% endif %}
                   {% endif %}
                 </form>
