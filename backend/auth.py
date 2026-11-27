@@ -178,19 +178,3 @@ def authenticate_member():
         if flask.request.method in ('GET', 'HEAD'):
             flask.abort(flask.redirect('/membership'))
         flask.abort(403, 'Organization membership approval is required.')
-
-def update_profile_display_name():
-    authenticate()
-    user = get_user()
-
-    display_name = flask.request.form.get('display_name', '').strip()
-    if not display_name:
-        flask.flash('Display name cannot be empty.')
-    elif len(display_name) > 80:
-        flask.flash('Display name must be 80 characters or fewer.')
-    elif database.update_display_name(user['user_id'], display_name):
-        flask.flash('Display name saved.')
-    else:
-        flask.flash('Display name could not be saved. Please try again.')
-
-    return flask.redirect(flask.url_for('my_profile'))
