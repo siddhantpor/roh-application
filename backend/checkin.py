@@ -10,9 +10,6 @@
 # S11a admin review list, S11b admin edit one entry.
 #
 # TODO: check-in window (~15 min before event start); currently any time.
-# TODO: require RSVP "going" to check in? Currently anyone with the code.
-#       (add `elif database.get_rsvp(user_id, event_id) != True:` to
-#       handle_member_checkin)
 # TODO: "reason for change" on S11b is shown, not stored (no column).
 #-----------------------------------------------------------------------
 
@@ -92,6 +89,11 @@ def member_checkin(event_id):
     checkin = database.get_checkin(user_id, event_id)
     checkout = database.get_checkout(user_id, event_id)
 
+    # Only attendees can see the check-in form (existing records stay visible).
+    if checkin is None and database.get_rsvp(user_id, event_id) is not True:
+        return flask.redirect(flask.url_for('member_event_detail',
+            event_id=event_id))
+
     if checkin is None:
         state = 'not_checked_in'
     elif checkout is None:
@@ -137,7 +139,10 @@ def handle_member_checkin(event_id):
         flask.abort(404)
 
     code = flask.request.form.get('code')
-    if (code is None) or (code.strip() == ''):
+    if database.get_rsvp(user_id, event_id) is not True:
+        msg = ('You can only check in to events you\'re attending. '
+            'RSVP "going" first.')
+    elif (code is None) or (code.strip() == ''):
         msg = 'Enter the check-in code.'
     elif event['checkin_code'] is None:
         msg = ('This event has no check-in code yet. '

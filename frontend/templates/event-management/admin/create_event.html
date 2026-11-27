@@ -4,6 +4,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ 'Edit' if event else 'Create' }} Event · Rays of Hope</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw==" crossorigin="anonymous" referrerpolicy="no-referrer">
   </head>
   <body>
     {% include 'header.html' %}
@@ -32,10 +33,16 @@
           <input type="time" name="end_time" value="{{ values.get('end_time', '') }}" required>
         </label>
       </div>
-      <label class="create-event-card">
-        <strong>Location <span class="text-red">*</span></strong>
-        <input type="text" name="location" placeholder="e.g., Somerset, NJ" value="{{ values.get('location', '') }}" maxlength="300" required>
-      </label>
+      <div class="create-event-card location-field">
+        <label for="location-input"><strong>Location <span class="text-red">*</span></strong></label>
+        <input type="text" id="location-input" name="location" placeholder="e.g., Princeton Public Library" value="{{ values.get('location', '') }}" maxlength="300" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="location-suggestions" required>
+        <ul id="location-suggestions" class="location-suggestions" role="listbox" hidden></ul>
+        <input type="hidden" name="lat" id="pin-lat" value="{{ values.get('lat') if values.get('lat') is not none else '' }}">
+        <input type="hidden" name="lng" id="pin-lng" value="{{ values.get('lng') if values.get('lng') is not none else '' }}">
+        <button type="button" id="pin-open" class="button button-shadow pin-open"></button>
+        <span class="pin-status" id="pin-status"></span>
+        <span class="pin-help">Autocomplete often picks the main entrance. Set the exact spot where volunteers should meet.</span>
+      </div>
       <label class="create-event-card">
         <strong>Description</strong>
         <textarea name="description" placeholder="Tell volunteers about this event (what to expect, the dress code, etc.)" maxlength="10000">{{ values.get('description', '') or '' }}</textarea>
@@ -53,5 +60,153 @@
     </form>
     </main>
     {% include 'footer.html' %}
+
+    <div id="pin-modal" class="pin-modal" hidden>
+      <div class="pin-modal-box" role="dialog" aria-modal="true" aria-label="Set exact meeting spot">
+        <div class="pin-search">
+          <input type="text" id="pin-search" placeholder="Search for a place" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="pin-search-suggestions">
+          <ul id="pin-search-suggestions" class="location-suggestions" role="listbox" hidden></ul>
+        </div>
+        <p class="pin-modal-title"><strong>Drag the pin to the exact spot</strong> <span>(or tap the map to move it)</span></p>
+        <div id="pin-map" class="pin-map"></div>
+        <div class="pin-modal-buttons">
+          <button type="button" id="pin-use" class="button button-yellow" disabled>Use this spot</button>
+          <button type="button" id="pin-remove" class="button button-shadow">Remove pin</button>
+          <button type="button" id="pin-cancel" class="button button-shadow">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+      (function () {
+        // Suggestion dropdown for a text input; onPick(item) runs when one is chosen.
+        function attachAutocomplete(input, list, onPick) {
+          var timer = null, seq = 0, active = -1, items = [];
+          function close() { list.hidden = true; input.setAttribute('aria-expanded', 'false'); active = -1; }
+          function setActive(i) {
+            var els = list.children;
+            if (active >= 0 && els[active]) els[active].classList.remove('active');
+            active = i;
+            if (els[i]) { els[i].classList.add('active'); els[i].scrollIntoView({block: 'nearest'}); }
+          }
+          function pick(item) { input.value = item.label; close(); onPick(item); }
+          function render(results) {
+            items = results;
+            list.textContent = '';
+            if (!results.length) { close(); return; }
+            results.forEach(function (item) {
+              var li = document.createElement('li');
+              li.setAttribute('role', 'option');
+              li.textContent = item.label;
+              li.addEventListener('mousedown', function (e) { e.preventDefault(); pick(item); });
+              list.appendChild(li);
+            });
+            list.hidden = false;
+            input.setAttribute('aria-expanded', 'true');
+          }
+          input.addEventListener('input', function () {
+            clearTimeout(timer);
+            var q = input.value.trim();
+            if (q.length < 3) { seq++; close(); return; }
+            var mine = ++seq;
+            timer = setTimeout(function () {
+              fetch('/admin/places/search?q=' + encodeURIComponent(q), {credentials: 'same-origin'})
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .then(function (results) { if (mine === seq) render(results); })
+                .catch(function () {});
+            }, 300);
+          });
+          input.addEventListener('keydown', function (e) {
+            if (list.hidden) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); setActive((active + 1) % items.length); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((active - 1 + items.length) % items.length); }
+            else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); pick(items[active]); }
+            else if (e.key === 'Escape') { close(); }
+          });
+          input.addEventListener('blur', close);
+        }
+
+        var input = document.getElementById('location-input');
+        var hint = null;  // last picked suggestion; only used to center the pin map
+        attachAutocomplete(input, document.getElementById('location-suggestions'),
+                           function (item) { hint = item; });
+        // Editing the text after picking a suggestion makes that suggestion's coordinates stale.
+        input.addEventListener('input', function () { hint = null; });
+
+        // ---- Exact-spot pin picker (Leaflet + OpenStreetMap tiles, no key) ----
+        var pinLat = document.getElementById('pin-lat'), pinLng = document.getElementById('pin-lng');
+        var openBtn = document.getElementById('pin-open'), status = document.getElementById('pin-status');
+        var modal = document.getElementById('pin-modal'), useBtn = document.getElementById('pin-use');
+        var map = null, marker = null, chosen = null, openSeq = 0;
+
+        function hasPin() { return pinLat.value !== '' && pinLng.value !== ''; }
+        function refresh() {
+          openBtn.textContent = hasPin() ? 'Change exact spot' : 'Set exact spot';
+          status.textContent = hasPin() ? '\u2713 Exact spot set' : '';
+        }
+        function setMarker(latlng) {
+          chosen = latlng;
+          if (marker) { marker.setLatLng(latlng); }
+          else {
+            marker = L.marker(latlng, {draggable: true}).addTo(map);
+            marker.on('dragend', function () { chosen = marker.getLatLng(); });
+          }
+          useBtn.disabled = false;
+        }
+        function closeModal() { modal.hidden = true; document.body.classList.remove('modal-open'); }
+        function openModal() {
+          if (typeof L === 'undefined') { alert('The map could not load. Check your connection and try again.'); return; }
+          modal.hidden = false;
+          document.body.classList.add('modal-open');
+          var token = ++openSeq;
+          var start = hasPin() ? [+pinLat.value, +pinLng.value] : [40.3573, -74.6672];
+          if (!map) {
+            map = L.map('pin-map').setView(start, 18);
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}).addTo(map);
+            map.on('click', function (e) { setMarker(e.latlng); });
+          }
+          map.invalidateSize();
+          map.setView(start, 18);
+          if (marker) { map.removeLayer(marker); marker = null; }
+          pinSearch.value = input.value;  // already typed once; don't ask twice
+          chosen = null; useBtn.disabled = true;
+          if (hasPin()) { setMarker(L.latLng(start[0], start[1])); return; }
+          // No saved pin yet: start at the picked suggestion, or else the best match for the
+          // typed text. The admin then drags the pin to the exact spot.
+          if (hint) { placeAt(hint); return; }
+          var q = input.value.trim();
+          if (q.length < 3) return;
+          fetch('/admin/places/search?q=' + encodeURIComponent(q), {credentials: 'same-origin'})
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (results) {
+              if (token === openSeq && !modal.hidden && !chosen && results.length) placeAt(results[0]);
+            })
+            .catch(function () {});
+        }
+        function placeAt(item) {
+          map.setView([item.lat, item.lng], 18);
+          setMarker(L.latLng(item.lat, item.lng));
+        }
+        var pinSearch = document.getElementById('pin-search');
+        attachAutocomplete(pinSearch, document.getElementById('pin-search-suggestions'), function (item) {
+          hint = item;
+          if (map) placeAt(item);
+        });
+        openBtn.addEventListener('click', openModal);
+        useBtn.addEventListener('click', function () {
+          if (!chosen) return;
+          pinLat.value = chosen.lat.toFixed(6);
+          pinLng.value = chosen.lng.toFixed(6);
+          refresh(); closeModal();
+        });
+        document.getElementById('pin-remove').addEventListener('click', function () {
+          pinLat.value = ''; pinLng.value = ''; refresh(); closeModal();
+        });
+        document.getElementById('pin-cancel').addEventListener('click', closeModal);
+        refresh();
+      })();
+    </script>
   </body>
 </html>

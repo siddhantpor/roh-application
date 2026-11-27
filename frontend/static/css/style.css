@@ -549,3 +549,33 @@ th, td { padding: 10px; text-align: left; vertical-align: top; }
   border-color: var(--dark-gray);
   background: var(--green);
 }
+
+/* Location autocomplete */
+.location-field { position: relative; }
+.location-suggestions { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; margin: 0; padding: 0; list-style: none;
+  background: #fff; border: 1px solid #ccc; border-radius: 8px; max-height: 260px; overflow-y: auto; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.location-suggestions li { padding: 10px 12px; cursor: pointer; }
+.location-suggestions li:hover, .location-suggestions li.active { background: #f2f2f2; }
+
+/* Event map */
+.event-map { margin: 16px 0; max-width: 700px; }
+.event-map iframe { display: block; width: 100%; height: 300px; border: 0; border-radius: 8px; margin-bottom: 12px; }
+
+/* Exact-spot pin picker */
+.pin-open { align-self: flex-start; margin-top: 8px; }
+.pin-status { color: #1a7f37; font-weight: bold; }
+.pin-help { font-size: 0.85em; color: #666; }
+.pin-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.5);
+  display: flex; align-items: center; justify-content: center; padding: 12px; }
+.pin-modal[hidden] { display: none; }
+.pin-modal-box { background: #fff; border-radius: 12px; padding: 12px; width: 100%; max-width: 640px; }
+.pin-modal-title { margin: 0 0 8px; }
+.pin-modal-title span { color: #666; font-size: 0.9em; }
+.pin-map { height: min(60vh, 460px); border-radius: 8px; }
+.pin-modal-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pin-modal-buttons .button:disabled { opacity: .5; }
+body.modal-open { overflow: hidden; }
+
+.pin-search { position: relative; margin-bottom: 8px; }
+.pin-search input { width: 100%; box-sizing: border-box; }
+.pin-map { isolation: isolate; }
