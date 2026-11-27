@@ -9,7 +9,20 @@
   {% include 'header.html' %}
   <main class="content auth-layout auth-card">
     <h1>My Profile</h1>
-    <p>Name: {{ current_user.display_name or 'Not provided' }}</p>
+    <form action="{{ url_for('update_profile_display_name') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" >
+      <label for="display_name">Display Name: </label>
+      <input
+        id="display_name"
+        name="display_name"
+        class="display-name-input"
+        type="text"
+        value="{{ current_user.display_name or '' }}"
+        maxlength="80"
+        required
+        >
+        <button type="submit" class="button site-nav-button">Save</button>
+    </form>
     <p>Email: {{ current_user.email }}</p>
     <form action="/logout" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

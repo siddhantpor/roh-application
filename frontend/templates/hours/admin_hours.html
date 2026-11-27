@@ -7,10 +7,10 @@
   </head>
   <body>
     {% include 'header.html' %}
-
+    <main class="content">
     <div class="header-row">
       <a href="/admin/events" class="button button-shadow square-button">&lt;</a>
-      <h1 class="header text-center">Volunteer Hours</h1>
+      <h1 class="header text-center page-title create-event-header">Volunteer Hours</h1>
     </div>
 
     <div>
@@ -78,6 +78,7 @@
         </table>
       </div>
     </div>
+    </main>
 
     <script>
       const startDate = document.querySelector('#start_date');
@@ -115,6 +116,7 @@
         updateHours();
       });
     </script>
+
 
     {% include 'footer.html' %}
   </body>

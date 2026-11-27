@@ -190,7 +190,9 @@ input, textarea {
   background: var(--green);
 }
 
-
+.button-red {
+  background: var(--red);
+}
 
 .green-card {
   height: 68px;
@@ -226,6 +228,9 @@ input, textarea {
   border-radius: 10px;
   background: var(--white);
   box-shadow: 2px 2px 4px rgb(0 0 0 / 0.25);
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .event-card p {
@@ -329,6 +334,14 @@ input, textarea {
   vertical-align: -1px;
 }
 
+.member-row > td {
+  border-top: 1px solid #888888;
+}
+
+.members-table {
+  border-collapse: collapse;
+}
+
 .create-event-card {
   display: flex;
   flex-direction: column;
@@ -369,6 +382,21 @@ input, textarea {
 .create-event-card input[type="file"] {
   height: auto;
   padding: 8px 10px;
+}
+
+.create-event-header {
+  margin-bottom: 16px;
+}
+
+.display-name-input {
+  width: 100%;
+  max-width: 200px;
+  min-height: 16px;
+  box-sizing: border-box;
+  font-size: 12px;
+  padding:6px 8px;
+  border-radius: 10px;
+  border: 1px solid #888888
 }
 
 /* Shared navigation. */
