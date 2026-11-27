@@ -14,7 +14,7 @@
 
     <p class="text-gray">{{ event.event_date | format_date }}, {{ event.start_time | format_time }}-{{ event.end_time | format_time }}</p>
     <h1 class="header-bold">{{ event.event_title }}</h1>
-    <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map"><a href="https://www.google.com/maps/search/?api=1&amp;query={{ event.event_locat | urlencode }}" target="_blank" rel="noopener">{{ event.event_locat }}</a> · {{ event.attending }} {{ 'Member' if event.attending == 1 else 'Members' }} Attending</p>
+    <p class="subtext text-dark-gray"><img src="/static/images/map.svg" alt="" class="icon-map">{{ event.event_locat }} · {{ event.attending }} {{ 'Member' if event.attending == 1 else 'Members' }} Attending</p>
 
     {% include 'event-management/map.html' %}
 

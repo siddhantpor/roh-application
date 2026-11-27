@@ -26,7 +26,7 @@ def _label(props):
 
 
 def search(query):
-    """Return a list of suggestion strings for what the admin has typed so far."""
+    """Return [{label, lat, lng}] suggestions; coordinates only center the pin-drop map."""
     query = ' '.join(query.split())[:200]
     if len(query) < 3:
         return []
@@ -47,8 +47,12 @@ def search(query):
     results = []
     for feature in features:
         label = _label(feature.get('properties') or {})[:300]
-        if label and label not in results:
-            results.append(label)
+        try:
+            lng, lat = feature['geometry']['coordinates'][:2]
+        except (KeyError, TypeError, ValueError):
+            continue
+        if label and all(r['label'] != label for r in results):
+            results.append({'label': label, 'lat': lat, 'lng': lng})
     with _lock:
         if len(_cache) >= _CACHE_MAX:
             _cache.clear()

@@ -80,7 +80,8 @@ def get_event(event_id):
                             WHERE event_id = e.event_id ORDER BY user_id, time DESC) latest
                          JOIN accounts a ON a.user_id = latest.user_id
                          WHERE latest.accepted = true AND a.approved = true
-                           AND a.is_admin IS NOT TRUE)
+                           AND a.is_admin IS NOT TRUE),
+                       e.event_lat, e.event_lng
                 FROM events e WHERE e.event_id = %s
                 """,
                 [event_id],
@@ -102,6 +103,8 @@ def get_event(event_id):
                 "checkout_code": row[9],
                 "graphic_public_id": row[10],
                 "attending": row[11],
+                "event_lat": row[12],
+                "event_lng": row[13],
             }
 
 
@@ -624,13 +627,16 @@ def update_event(
     event_locat,
     graphic_link,
     graphic_public_id,
+    event_lat=None,
+    event_lng=None,
 ):
     with _get_pool().connection() as connection:
         connection.execute(
             """
             UPDATE events SET event_date = %s, event_starttime = %s, event_endtime = %s,
                 event_title = %s, event_descrip = %s, event_locat = %s,
-                graphic_link = %s, graphic_public_id = %s WHERE event_id = %s
+                graphic_link = %s, graphic_public_id = %s,
+                event_lat = %s, event_lng = %s WHERE event_id = %s
         """,
             [
                 event_date,
@@ -641,6 +647,8 @@ def update_event(
                 event_locat,
                 graphic_link,
                 graphic_public_id,
+                event_lat,
+                event_lng,
                 event_id,
             ],
         )
@@ -655,13 +663,16 @@ def add_event(
     event_locat,
     graphic_link=None,
     graphic_public_id=None,
+    event_lat=None,
+    event_lng=None,
 ):
     with _get_pool().connection() as connection:
         return connection.execute(
             """
             INSERT INTO events (event_date, event_starttime, event_endtime, event_title,
-                                event_descrip, event_locat, graphic_link, graphic_public_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING event_id
+                                event_descrip, event_locat, graphic_link, graphic_public_id,
+                                event_lat, event_lng)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING event_id
         """,
             [
                 event_date,
@@ -672,6 +683,8 @@ def add_event(
                 event_locat,
                 graphic_link,
                 graphic_public_id,
+                event_lat,
+                event_lng,
             ],
         ).fetchone()[0]
 
