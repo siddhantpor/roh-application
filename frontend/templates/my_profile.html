@@ -20,6 +20,27 @@
       <button type="submit" class="action-button action-primary">Save</button>
     </form>
     <p>Email: {{ current_user.email }}</p>
+
+    <h2>Notifications</h2>
+    <form action="/my-profile/notifications" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <p>Email me when:</p>
+      <label><input type="checkbox" name="notify_new_event" {% if prefs.notify_new_event %}checked{% endif %}>
+        a new event is posted</label><br>
+      <label><input type="checkbox" name="notify_rsvp" {% if prefs.notify_rsvp %}checked{% endif %}>
+        I RSVP to an event</label><br>
+      <label><input type="checkbox" name="notify_changes" {% if prefs.notify_changes %}checked{% endif %}>
+        an event I RSVP'd to changes</label><br>
+      <label><input type="checkbox" name="notify_reminder" {% if prefs.notify_reminder %}checked{% endif %}>
+        an event I RSVP'd to is tomorrow (reminder)</label>
+      <label class="create-event-card">
+        Phone (optional)
+        <input name="phone" type="tel" value="{{ prefs.phone }}" autocomplete="tel" maxlength="20">
+      </label>
+      <label><input type="checkbox" name="notify_sms" {% if prefs.notify_sms %}checked{% endif %}>
+        also text me reminders</label><br>
+      <button type="submit" class="action-button action-primary">Save</button>
+    </form>
     <form action="/logout" method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="button site-nav-button">Log out</button>

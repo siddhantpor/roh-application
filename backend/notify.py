@@ -9,6 +9,7 @@ import datetime
 import flask
 import requests
 
+import auth
 import databasepostgresql as database
 import utils
 
@@ -18,6 +19,32 @@ SMTP2GO_URL = 'https://api.smtp2go.com/v3/email/send'
 def init(app):
     app.config['SMTP2GO_API_KEY'] = app.config.get('SMTP2GO_API_KEY', '')
     app.config['NOTIFY_FROM'] = app.config.get('NOTIFY_FROM', '')
+    app.add_url_rule('/my-profile/notifications', view_func=handle_prefs, methods=['POST'])
+
+
+def prefs_for_profile(user_id):
+    # used by the my profile page
+    return database.get_notify_prefs(user_id)
+
+
+def handle_prefs():
+    auth.authenticate()
+    user_id = auth.get_user()['user_id']
+    phone = flask.request.form.get('phone', '').strip()
+    if phone and not _looks_like_phone(phone):
+        flask.flash('That phone number does not look right.')
+        return flask.redirect(flask.url_for('my_profile'))
+    flags = {flag: flask.request.form.get(flag) == 'on' for flag in database.NOTIFY_FLAGS}
+    if not phone:
+        flags['notify_sms'] = False
+    database.set_notify_prefs(user_id, phone, flags)
+    flask.flash('Notification settings saved.')
+    return flask.redirect(flask.url_for('my_profile'))
+
+
+def _looks_like_phone(phone):
+    digits = ''.join(ch for ch in phone if ch.isdigit())
+    return 10 <= len(digits) <= 15
 
 #-----------------------------------------------------------------------
 

@@ -113,7 +113,9 @@ def my_profile():
         database.set_display_name(get_user()['user_id'], display_name)
         flask.flash('Name updated.')
         return flask.redirect(flask.url_for('my_profile'))
-    return flask.render_template('my_profile.html')
+    import notify
+    prefs = notify.prefs_for_profile(get_user()['user_id'])
+    return flask.render_template('my_profile.html', prefs=prefs)
 
 
 def profile():
