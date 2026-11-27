@@ -130,3 +130,15 @@ def event_changed(event_id):
             _event_lines(event) + '\n\n' + _events_link() + '\n')
     for person in database.get_rsvped_to_notify(event_id, 'notify_changes'):
         send_email(person['email'], 'Updated: ' + event['event_title'], body)
+
+
+def rsvp_confirmed(user_id, event_id):
+    prefs = database.get_notify_prefs(user_id)
+    account = database.get_account(user_id)
+    event = database.get_event(event_id)
+    if not prefs or not prefs['notify_rsvp'] or account is None or event is None:
+        return
+    body = ('Thanks for signing up! You RSVP\'d yes to:\n\n' + _event_lines(event) +
+            '\n\nWhen you get there, ask the coordinator for the check-in code and '
+            'enter it on the events page to log your hours.\n' + _events_link() + '\n')
+    send_email(account['email'], 'You\'re signed up for ' + event['event_title'], body)

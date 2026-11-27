@@ -347,6 +347,8 @@ def member_rsvp(event_id):
     accepted = flask.request.form.get('rsvp') == 'yes'
     time = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     database.add_rsvp(auth.get_user()['user_id'], event_id, accepted, time)
+    if accepted:
+        notify.rsvp_confirmed(auth.get_user()['user_id'], event_id)
     return flask.redirect(flask.url_for('member_event_detail', event_id=event_id))
 
 @app.route('/member/hours')
