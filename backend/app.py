@@ -10,7 +10,9 @@ from flask_wtf.csrf import CSRFProtect
 
 import auth
 import checkin
+import communityboard
 import databasepostgresql as database
+import places
 import posters
 import utils
 
@@ -45,6 +47,7 @@ database.init_app(app)
 CSRFProtect(app)
 auth.init(app)
 checkin.init(app)
+communityboard.init(app)
 utils.init(app)
 
 
@@ -160,8 +163,15 @@ def admin_edit_event(event_id):
         flask.abort(404)
     values = {'date': event['event_date'], 'title': event['event_title'],
               'start_time': event['start_time'], 'end_time': event['end_time'],
-              'location': event['event_locat'], 'description': event['event_descrip']}
+              'location': event['event_locat'], 'description': event['event_descrip'],
+              'lat': event.get('event_lat'), 'lng': event.get('event_lng')}
     return flask.render_template('event-management/admin/create_event.html', event=event, values=values)
+
+
+@app.route('/admin/places/search')
+def admin_place_search():
+    auth.authenticate_admin()
+    return flask.jsonify(places.search(flask.request.args.get('q', '')))
 
 
 @app.route('/admin/events/create', methods=['POST'])
@@ -177,6 +187,7 @@ def save_event(event_id=None):
     public_id = event['graphic_public_id'] if event else None
     uploaded_id = None
     _validate_event(form)
+    lat, lng = _parse_pin(flask.request.form.get('lat'), flask.request.form.get('lng'))
     flyer = flask.request.files.get('flyer')
     remove = flask.request.form.get('remove_poster') == 'yes'
     if remove and flyer and flyer.filename:
@@ -191,10 +202,14 @@ def save_event(event_id=None):
     try:
         if event is None:
             event_id = database.add_event(form['date'], form['start_time'], form['end_time'],
-                form['title'], form['description'], form['location'], url, public_id)
+                form['title'], form['description'], form['location'], url, public_id,
+                event_lat=lat, event_lng=lng)
+            # New events get their check-in/check-out codes right away.
+            database.set_event_codes(event_id, *checkin.generate_code_pair())
         else:
             database.update_event(event_id, form['date'], form['start_time'], form['end_time'],
-                form['title'], form['description'], form['location'], url, public_id)
+                form['title'], form['description'], form['location'], url, public_id,
+                event_lat=lat, event_lng=lng)
     except Exception:
         if uploaded_id:
             posters.delete(uploaded_id)
@@ -203,6 +218,20 @@ def save_event(event_id=None):
         posters.delete(event['graphic_public_id'])
     flask.flash('Event saved.')
     return flask.redirect(flask.url_for('admin_event_detail', event_id=event_id))
+
+
+def _parse_pin(lat, lng):
+    """The exact-spot pin: both numbers or neither. Bad input is a 400."""
+    lat, lng = (lat or '').strip(), (lng or '').strip()
+    if not lat and not lng:
+        return None, None
+    try:
+        lat, lng = float(lat), float(lng)
+    except ValueError:
+        flask.abort(400)
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        flask.abort(400)
+    return round(lat, 6), round(lng, 6)
 
 
 def _validate_event(form):

@@ -1,0 +1,13 @@
+{# With an exact pin, point everything at it; otherwise fall back to the location text. #}
+{% set has_pin = event.event_lat is number and event.event_lng is number %}
+{% set place = ('%.6f,%.6f' % (event.event_lat, event.event_lng)) if has_pin else (event.event_locat | urlencode) %}
+<div class="event-map">
+  <iframe title="Map of {{ event.event_locat }}" loading="lazy" referrerpolicy="no-referrer"
+    src="https://www.google.com/maps?q={{ place }}&amp;output=embed"></iframe>
+  <div class="button-row">
+    <a class="button button-shadow" target="_blank" rel="noopener"
+       href="https://www.google.com/maps/search/?api=1&amp;query={{ place }}">Google Maps</a>
+    <a class="button button-shadow" target="_blank" rel="noopener"
+       href="https://maps.apple.com/?{{ 'll=' ~ place ~ '&q=Meeting%20spot' if has_pin else 'q=' ~ place }}">Apple Maps</a>
+  </div>
+</div>

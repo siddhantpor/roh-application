@@ -1,0 +1,18 @@
+{% if post.images | length == 1 %}
+  <img class="post-image" src="{{ post.images[0].image_url }}" alt="Image attached to {{ post.post_title }}" loading="lazy">
+{% elif post.images | length > 1 %}
+  <div class="post-images" role="region" aria-label="Images for {{ post.post_title }}">
+    <div class="swiper post-image-slider">
+      <div class="swiper-wrapper">
+        {% for image in post.images %}
+          <div class="swiper-slide">
+            <img class="post-image" src="{{ image.image_url }}" alt="Image {{ loop.index }} of {{ post.images | length }} attached to {{ post.post_title }}" loading="lazy">
+          </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="swiper-button-prev" aria-label="Previous image"></button>
+      <button type="button" class="swiper-button-next" aria-label="Next image"></button>
+    </div>
+    <div class="swiper-pagination"></div>
+  </div>
+{% endif %}

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your name · Rays of Hope</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  {% include 'header.html' %}
+  <main class="content auth-layout">
+    <section class="auth-card">
+      <h1>What’s your name?</h1>
+      <p>Enter your full name so organizers can recognize you.</p>
+      <form action="/profile" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="create-event-card" for="display-name">
+          Full name
+          <input id="display-name" name="display_name" type="text"
+                 value="{{ display_name }}" autocomplete="name" maxlength="100" pattern=".*\S.*" title="Name can't be blank." required>
+        </label>
+        <button type="submit" class="action-button action-primary">Continue</button>
+      </form>
+    </section>
+  </main>
+  {% include 'footer.html' %}
+</body>
+</html>

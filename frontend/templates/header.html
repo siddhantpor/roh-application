@@ -5,6 +5,9 @@
   </a>
   {% if current_user %}
     <nav class="site-nav" aria-label="Account">
+      {% if current_user.is_admin or current_user.approved %}
+        <a class="button site-nav-button" href="/community-board">Community Board</a>
+      {% endif %}
       <a class="button site-nav-button" href="/my-profile">My Profile</a>
     </nav>
   {% endif %}

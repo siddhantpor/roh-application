@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ 'Edit' if post else 'Create' }} Post · Rays of Hope</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+  </head>
+  <body>
+    {% include 'header.html' %}
+    <main class="content">
+      <div class="header-row">
+        <a href="{{ url_for('community_board') }}" class="button button-shadow square-button">&lt;</a>
+        <h1 class="header-bold page-title">{{ 'Edit Post' if post else 'Create Post' }}</h1>
+      </div>
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label class="create-event-card">
+          <strong>Title <span class="text-red">*</span></strong>
+          <input type="text" name="post_title" placeholder="e.g., Thank you for a great food drive!" value="{{ post.post_title if post else '' }}" required>
+        </label>
+        <label class="create-event-card">
+          <strong>Post</strong>
+          <textarea name="body" placeholder="Share an update with the members.">{{ post.body if post else '' }}</textarea>
+        </label>
+        {% if post and post.images %}
+          <div class="create-event-card">
+            <strong>Current images</strong>
+            <div class="post-image-previews">
+              {% for image in post.images %}
+                <div class="post-image-preview">
+                  <img src="{{ image.image_url }}" alt="Current image {{ loop.index }}">
+                  <label class="post-image-remove">
+                    <input type="checkbox" name="remove_images" value="{{ image.image_id }}">
+                    Remove on save
+                  </label>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+        <div class="create-event-card">
+          <label for="post-images"><strong>{{ 'Add images' if post else 'Images (optional)' }}</strong></label>
+          <input id="post-images" type="file" name="images" accept=".jpg,.jpeg,.png,.webp" multiple>
+          <button type="button" id="add-images" class="button button-shadow post-image-button" hidden>Add images</button>
+          <p id="image-count" class="subtext" aria-live="polite"></p>
+          <div id="image-previews" class="post-image-previews"></div>
+          <p class="subtext">JPEG, PNG, or WebP. Up to 5 MB per image; keep the total upload under 6 MB.</p>
+        </div>
+        <p class="text-gray">Include post text, images, or both. A title is required.</p>
+        <button type="submit" class="button create-event-button button-yellow">{{ 'Save Changes' if post else 'Publish Post' }}</button>
+      </form>
+    </main>
+    {% include 'footer.html' %}
+      <script>
+        const imageInput = document.getElementById('post-images');
+        const addImages = document.getElementById('add-images');
+        const previews = document.getElementById('image-previews');
+        const imageCount = document.getElementById('image-count');
+        const selectedImages = [];
+
+        imageInput.hidden = true;
+        addImages.hidden = false;
+        addImages.addEventListener('click', () => imageInput.click());
+
+        function updateImages() {
+          const files = new DataTransfer();
+          for (const file of selectedImages) files.items.add(file);
+          imageInput.files = files.files;
+
+          for (const image of previews.querySelectorAll('img')) {
+            URL.revokeObjectURL(image.src);
+          }
+          previews.replaceChildren();
+          imageCount.textContent = selectedImages.length + ' images selected';
+
+          selectedImages.forEach((file, index) => {
+            const preview = document.createElement('div');
+            preview.className = 'post-image-preview';
+            const image = document.createElement('img');
+            image.src = URL.createObjectURL(file);
+            image.alt = file.name;
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'button button-shadow post-image-button';
+            remove.textContent = 'Remove';
+            remove.setAttribute('aria-label', 'Remove ' + file.name);
+            remove.addEventListener('click', () => {
+              selectedImages.splice(index, 1);
+              updateImages();
+            });
+            preview.append(image, remove);
+            previews.append(preview);
+          });
+        }
+
+        imageInput.addEventListener('change', () => {
+          selectedImages.push(...imageInput.files);
+          updateImages();
+        });
+      </script>
+  </body>
+</html>
