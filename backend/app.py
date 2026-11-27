@@ -12,6 +12,7 @@ import auth
 import checkin
 import communityboard
 import databasepostgresql as database
+import notify
 import places
 import posters
 import utils
@@ -31,6 +32,8 @@ app.config.update(
     CLOUDINARY_CLOUD_NAME=os.getenv('CLOUDINARY_CLOUD_NAME', ''),
     CLOUDINARY_API_KEY=os.getenv('CLOUDINARY_API_KEY', ''),
     CLOUDINARY_API_SECRET=os.getenv('CLOUDINARY_API_SECRET', ''),
+    SMTP2GO_API_KEY=os.getenv('SMTP2GO_API_KEY', ''),
+    NOTIFY_FROM=os.getenv('NOTIFY_FROM', ''),
     SESSION_COOKIE_SAMESITE='Lax',
     SESSION_COOKIE_SECURE=os.getenv('SESSION_COOKIE_SECURE', 'false').lower() == 'true',
     PERMANENT_SESSION_LIFETIME=datetime.timedelta(hours=8),
@@ -48,6 +51,7 @@ CSRFProtect(app)
 auth.init(app)
 checkin.init(app)
 communityboard.init(app)
+notify.init(app)
 utils.init(app)
 
 
