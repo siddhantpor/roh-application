@@ -19,6 +19,9 @@ import utils
 SMTP2GO_URL = 'https://api.smtp2go.com/v3/email/send'
 LOCAL_TIMEZONE = zoneinfo.ZoneInfo('America/New_York')
 REMINDER_HOURS = 24
+# admin digest goes out monday mornings (0 = monday)
+DIGEST_WEEKDAY = 0
+DIGEST_HOUR = 8
 # how often the lazy check in before_request is allowed to actually run
 LAZY_CHECK_SECONDS = 30 * 60
 _last_lazy_check = 0.0
@@ -190,7 +193,7 @@ def handle_send_reminders():
     given = flask.request.headers.get('X-Tasks-Token', '')
     if not token or not hmac.compare_digest(token, given):
         flask.abort(403)
-    return {'sent': send_due_reminders()}
+    return {'sent': send_due_reminders(), 'digest': send_admin_digest_if_due()}
 
 
 def _lazy_reminder_check():
@@ -204,6 +207,7 @@ def _lazy_reminder_check():
         _last_lazy_check = now
     try:
         send_due_reminders()
+        send_admin_digest_if_due()
     except Exception as ex:
         # never let this take down a normal page
         flask.current_app.logger.warning('reminder check failed: %s', ex)
@@ -239,3 +243,81 @@ def hours_need_review(user_id, event_id):
             flask.url_for('admin_volunteer_hours', _external=True) + '\n')
     for admin in database.get_admins_to_notify('notify_admin_hours'):
         send_email(admin['email'], 'Hours to review: ' + account['display_name'], body)
+
+
+#-----------------------------------------------------------------------
+# Weekly admin digest
+#-----------------------------------------------------------------------
+
+def _last_digest_due(now):
+    # most recent monday 8am that is not in the future
+    due = now.replace(hour=DIGEST_HOUR, minute=0, second=0, microsecond=0)
+    due -= datetime.timedelta(days=(now.weekday() - DIGEST_WEEKDAY) % 7)
+    if due > now:
+        due -= datetime.timedelta(days=7)
+    return due
+
+
+def send_admin_digest_if_due():
+    # returns True if it sent one. safe to call as often as you like, task_runs
+    # remembers the last time so it only goes once a week even if a monday
+    # ping is missed and it catches up on tuesday
+    now = datetime.datetime.now(LOCAL_TIMEZONE).replace(tzinfo=None)
+    due = _last_digest_due(now)
+    last = database.get_task_last_run('admin_digest')
+    if last is not None and last >= due:
+        return False
+    send_admin_digest(due - datetime.timedelta(days=7), due)
+    database.set_task_last_run('admin_digest', now)
+    return True
+
+
+def send_admin_digest(since, until):
+    # since/until are local naive datetimes, usually a week apart
+    since_utc = since.replace(tzinfo=LOCAL_TIMEZONE).astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    until_utc = until.replace(tzinfo=LOCAL_TIMEZONE).astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    data = database.get_admin_digest(since_utc, until_utc, since.date(), until.date())
+    lines = ['Rays of Hope, week of ' + utils.format_date(since.date().isoformat()) + '\n']
+
+    lines.append('NEEDS YOUR ATTENTION')
+    if data['pending_accounts']:
+        lines.append(str(len(data['pending_accounts'])) + ' volunteer(s) waiting for approval:')
+        for a in data['pending_accounts']:
+            lines.append('  - ' + a['name'] + ' (' + (a['email'] or '') + ')')
+        lines.append('  ' + _members_link())
+    else:
+        lines.append('No volunteers waiting for approval.')
+    if data['pending_hours']:
+        lines.append('Hours waiting for review:')
+        for h in data['pending_hours']:
+            lines.append('  - ' + h['event_title'] + ' (' + utils.format_date(h['event_date']) +
+                         '): ' + str(h['people']) + ' volunteer(s)')
+        lines.append('  ' + flask.url_for('admin_volunteer_hours', _external=True))
+    else:
+        lines.append('No hours waiting for review.')
+
+    lines.append('\nLAST WEEK')
+    if data['events_held']:
+        for e in data['events_held']:
+            lines.append('  - ' + e['event_title'] + ' (' + utils.format_date(e['event_date']) +
+                         '): ' + str(e['checkins']) + ' checked in')
+    else:
+        lines.append('  No events.')
+    lines.append('  ' + str(data['new_rsvps']) + ' new RSVP(s)')
+    if data['new_posts']:
+        lines.append('  Community board:')
+        for p in data['new_posts']:
+            lines.append('    - "' + p['post_title'] + '" by ' + p['author'] + ', ' +
+                         str(p['reactions']) + ' reaction(s)')
+
+    lines.append('\nCOMING UP (next 7 days)')
+    if data['upcoming']:
+        for e in data['upcoming']:
+            lines.append('  - ' + e['event_title'] + ', ' + _when(e) + ': ' +
+                         str(e['attending']) + ' attending')
+    else:
+        lines.append('  Nothing scheduled.')
+
+    body = '\n'.join(lines) + '\n'
+    for admin in database.get_admins_to_notify():
+        send_email(admin['email'], 'Rays of Hope weekly summary', body)

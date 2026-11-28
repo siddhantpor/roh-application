@@ -1065,3 +1065,64 @@ def add_reminder_sent(user_id, event_id, time):
         """,
             [user_id, event_id, time],
         )
+
+
+def get_admin_digest(since_utc, until_utc, since_date, until_date):
+    # everything the monday admin email needs, in one trip. timestamps are
+    # utc (attendance/rsvps/posts), dates are local (events)
+    with _get_pool().connection() as connection:
+        pending_accounts = connection.execute("""
+            SELECT display_name, email FROM accounts
+            WHERE pending = TRUE ORDER BY display_name
+        """).fetchall()
+        pending_hours = connection.execute("""
+            SELECT e.event_title, e.event_date, COUNT(DISTINCT c.user_id)
+            FROM attendance c
+            JOIN events e ON e.event_id = c.event_id
+            LEFT JOIN attendance o
+                ON o.user_id = c.user_id AND o.event_id = c.event_id AND o.is_checkin = FALSE
+            WHERE c.is_checkin = TRUE
+              AND (c.approved IS NOT TRUE OR o.approved IS NOT TRUE)
+            GROUP BY e.event_id, e.event_title, e.event_date
+            ORDER BY e.event_date
+        """).fetchall()
+        events_held = connection.execute("""
+            SELECT e.event_title, e.event_date,
+                   (SELECT COUNT(*) FROM attendance c
+                    WHERE c.event_id = e.event_id AND c.is_checkin = TRUE)
+            FROM events e
+            WHERE e.event_date >= %s AND e.event_date < %s
+            ORDER BY e.event_date
+        """, [since_date, until_date]).fetchall()
+        new_rsvps = connection.execute("""
+            SELECT COUNT(*) FROM rsvps
+            WHERE accepted = TRUE AND time >= %s AND time < %s
+        """, [since_utc, until_utc]).fetchone()[0]
+        new_posts = connection.execute("""
+            SELECT p.post_title, a.display_name,
+                   (SELECT COUNT(*) FROM post_reactions r WHERE r.post_id = p.post_id)
+            FROM posts p JOIN accounts a ON a.user_id = p.author_id
+            WHERE p.created_at >= %s AND p.created_at < %s
+            ORDER BY p.created_at
+        """, [since_utc, until_utc]).fetchall()
+        upcoming = connection.execute("""
+            SELECT e.event_title, e.event_date, e.event_starttime,
+                   (SELECT COUNT(*) FROM
+                       (SELECT DISTINCT ON (user_id) user_id, accepted FROM rsvps
+                        WHERE event_id = e.event_id ORDER BY user_id, time DESC) latest
+                    WHERE latest.accepted = TRUE)
+            FROM events e
+            WHERE e.event_date >= %s AND e.event_date < %s + 7
+            ORDER BY e.event_date, e.event_starttime
+        """, [until_date, until_date]).fetchall()
+    return {
+        "pending_accounts": [{"name": r[0], "email": r[1]} for r in pending_accounts],
+        "pending_hours": [{"event_title": r[0], "event_date": _date_text(r[1]), "people": r[2]}
+                          for r in pending_hours],
+        "events_held": [{"event_title": r[0], "event_date": _date_text(r[1]), "checkins": r[2]}
+                        for r in events_held],
+        "new_rsvps": new_rsvps,
+        "new_posts": [{"post_title": r[0], "author": r[1], "reactions": r[2]} for r in new_posts],
+        "upcoming": [{"event_title": r[0], "event_date": _date_text(r[1]),
+                      "start_time": _time_text(r[2]), "attending": r[3]} for r in upcoming],
+    }
