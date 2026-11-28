@@ -9,7 +9,6 @@
     {% include 'header.html' %}
 
     <div class="header-row">
-      <a href="/admin/hours?start_date={{ (start_date or '') | urlencode }}&amp;end_date={{ (end_date or '') | urlencode }}&amp;search={{ search | urlencode }}" class="button button-shadow square-button">&lt;</a>
       <h1 class="header text-center">{{ member.display_name or member.email }} · Hours</h1>
     </div>
     <p class="text-gray text-center">{{ member.email }}</p>

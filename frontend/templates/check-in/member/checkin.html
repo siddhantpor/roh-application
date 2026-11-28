@@ -14,7 +14,6 @@
     {% if state == 'not_checked_in' %}
 
       <div class="header-row">
-        <a href="/member/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
         <h1 class="header-bold page-title">Check In</h1>
       </div>
 
@@ -46,7 +45,6 @@
     {% elif state == 'checked_in' %}
 
       <div class="header-row">
-        <a href="/member/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
         <h1 class="header-bold page-title">{{ event.event_title }}</h1>
       </div>
 
@@ -86,7 +84,6 @@
     {% else %}
 
       <div class="header-row">
-        <a href="/member/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
         <h1 class="header-bold page-title">{{ event.event_title }}</h1>
       </div>
 
