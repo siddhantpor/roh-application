@@ -890,6 +890,8 @@ def toggle_reaction(post_id, user_id, reaction):
 
 NOTIFY_FLAGS = ("notify_new_event", "notify_rsvp", "notify_changes",
                 "notify_reminder", "notify_sms")
+# admin-only ones. the weekly digest is always on for admins, no flag.
+ADMIN_FLAGS = ("notify_admin_signup", "notify_admin_hours")
 
 
 def get_notify_prefs(user_id):
@@ -897,7 +899,7 @@ def get_notify_prefs(user_id):
         row = connection.execute(
             """
             SELECT phone, notify_new_event, notify_rsvp, notify_changes,
-                   notify_reminder, notify_sms
+                   notify_reminder, notify_sms, notify_admin_signup, notify_admin_hours
             FROM accounts WHERE user_id = %s
         """,
             [user_id],
@@ -905,7 +907,7 @@ def get_notify_prefs(user_id):
     if row is None:
         return None
     prefs = {"phone": row[0] or ""}
-    for i, flag in enumerate(NOTIFY_FLAGS):
+    for i, flag in enumerate(NOTIFY_FLAGS + ADMIN_FLAGS):
         prefs[flag] = bool(row[i + 1])
     return prefs
 
@@ -920,6 +922,52 @@ def set_notify_prefs(user_id, phone, flags):
             WHERE user_id = %s
         """,
             [phone or None] + [bool(flags.get(f)) for f in NOTIFY_FLAGS] + [user_id],
+        )
+
+
+def set_admin_notify_prefs(user_id, flags):
+    with _get_pool().connection() as connection:
+        connection.execute(
+            """
+            UPDATE accounts SET notify_admin_signup = %s, notify_admin_hours = %s
+            WHERE user_id = %s AND is_admin = TRUE
+        """,
+            [bool(flags.get(f)) for f in ADMIN_FLAGS] + [user_id],
+        )
+
+
+def get_admins_to_notify(flag=None):
+    # flag None means every admin with an email (used for the digest)
+    if flag is not None and flag not in ADMIN_FLAGS:
+        raise ValueError(flag)
+    extra = f"AND {flag} = TRUE" if flag else ""
+    with _get_pool().connection() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT user_id, display_name, email, phone, FALSE
+            FROM accounts
+            WHERE is_admin = TRUE AND email IS NOT NULL {extra}
+        """
+        ).fetchall()
+    return _recipients(rows)
+
+
+def get_task_last_run(name):
+    with _get_pool().connection() as connection:
+        row = connection.execute(
+            "SELECT last_run FROM task_runs WHERE name = %s", [name]
+        ).fetchone()
+    return None if row is None else row[0]
+
+
+def set_task_last_run(name, time):
+    with _get_pool().connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO task_runs (name, last_run) VALUES (%s, %s)
+            ON CONFLICT (name) DO UPDATE SET last_run = EXCLUDED.last_run
+        """,
+            [name, time],
         )
 
 
