@@ -20,11 +20,29 @@
     <p><strong>About</strong></p>
     <p>{{ event.event_descrip }}</p>
 
-    <form action="/member/events/{{ event.event_id }}/rsvp" method="post" class="button-row">
+    <form id="rsvp-form" action="/member/events/{{ event.event_id }}/rsvp" method="post" class="button-row">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button name="rsvp" value="yes" class="button rsvp-button {{ 'button-green' if rsvp is true else 'button-shadow' }}">Attending</button>
       <button name="rsvp" value="no" class="button rsvp-button {{ 'button-red' if rsvp is false else 'button-shadow' }}">Not Attending</button>
     </form>
+
+    <script>
+      const rsvpForm = document.getElementById('rsvp-form');
+      rsvpForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const data = new FormData(rsvpForm);
+        if (event.submitter && event.submitter.name) {
+          data.append(event.submitter.name, event.submitter.value);
+        }
+
+        const response = await fetch(rsvpForm.action, { method: 'POST', body: data });
+        if (!response.ok) return;
+        const page = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const updatedForm = page.getElementById('rsvp-form');
+        if (!updatedForm) return;
+        rsvpForm.innerHTML = updatedForm.innerHTML;
+      });
+    </script>
 
     {% include 'footer.html' %}
   </body>
