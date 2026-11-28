@@ -21,46 +21,6 @@ def _get_pool():
 
 
 # -----------------------------------------------------------------------
-# Accounts
-# -----------------------------------------------------------------------
-
-
-def get_user_id(username):
-
-    with _get_pool().connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT user_id FROM accounts WHERE username = %s
-                """,
-                [username],
-            )
-            table = cursor.fetchall()
-            if len(table) != 1:
-                return None
-            return table[0][0]
-
-
-# -----------------------------------------------------------------------
-
-
-def is_admin(username):
-
-    with _get_pool().connection() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT is_admin FROM accounts WHERE username = %s
-                """,
-                [username],
-            )
-            table = cursor.fetchall()
-            if len(table) != 1:
-                return False
-            return table[0][0] is True
-
-
-# -----------------------------------------------------------------------
 # Events
 # -----------------------------------------------------------------------
 

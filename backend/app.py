@@ -73,10 +73,7 @@ def events():
     upcoming_events = []
     past_events = []
     for event in database.get_events():
-        event_end = datetime.datetime.fromisoformat(
-            event['event_date'] + 'T' + event['end_time'])
-        event_end = event_end.replace(tzinfo=checkin.LOCAL_TIMEZONE)
-        if event_end > now:
+        if not _has_ended(event, now):
             upcoming_events.append(event)
         else:
             past_events.append(event)
@@ -152,7 +149,8 @@ def admin_member_hours(user_id):
 @app.route('/admin/events/create')
 def admin_create_event():
     auth.authenticate_admin()
-    return flask.render_template('event-management/admin/create_event.html', event=None, values={})
+    return flask.render_template('event-management/admin/create_event.html', event=None, values={},
+                                 errors={})
 
 
 @app.route('/admin/events/<int:event_id>/edit')
@@ -161,11 +159,14 @@ def admin_edit_event(event_id):
     event = database.get_event(event_id)
     if event is None:
         flask.abort(404)
+    if _has_ended(event, datetime.datetime.now(checkin.LOCAL_TIMEZONE)):
+        return _past_event_redirect(event_id)
     values = {'date': event['event_date'], 'title': event['event_title'],
               'start_time': event['start_time'], 'end_time': event['end_time'],
               'location': event['event_locat'], 'description': event['event_descrip'],
               'lat': event.get('event_lat'), 'lng': event.get('event_lng')}
-    return flask.render_template('event-management/admin/create_event.html', event=event, values=values)
+    return flask.render_template('event-management/admin/create_event.html', event=event,
+                                 values=values, errors={})
 
 
 @app.route('/admin/places/search')
@@ -181,12 +182,19 @@ def save_event(event_id=None):
     event = database.get_event(event_id) if event_id is not None else None
     if event_id is not None and event is None:
         flask.abort(404)
+    if event is not None and _has_ended(event, datetime.datetime.now(checkin.LOCAL_TIMEZONE)):
+        return _past_event_redirect(event_id)
     form = {key: flask.request.form.get(key, '').strip() for key in
             ('date', 'start_time', 'end_time', 'title', 'description', 'location')}
     url = event['graphic_link'] if event else None
     public_id = event['graphic_public_id'] if event else None
     uploaded_id = None
-    _validate_event(form)
+    errors = _validate_event(form)
+    if errors:
+        values = dict(form, lat=flask.request.form.get('lat', ''),
+                      lng=flask.request.form.get('lng', ''))
+        return flask.render_template('event-management/admin/create_event.html',
+                                     event=event, values=values, errors=errors), 400
     lat, lng = _parse_pin(flask.request.form.get('lat'), flask.request.form.get('lng'))
     flyer = flask.request.files.get('flyer')
     remove = flask.request.form.get('remove_poster') == 'yes'
@@ -220,6 +228,16 @@ def save_event(event_id=None):
     return flask.redirect(flask.url_for('admin_event_detail', event_id=event_id))
 
 
+def _has_ended(event, now):
+    event_end = datetime.datetime.fromisoformat(event['event_date'] + 'T' + event['end_time'])
+    return event_end.replace(tzinfo=checkin.LOCAL_TIMEZONE) <= now
+
+
+def _past_event_redirect(event_id):
+    flask.flash('This event has already ended, so it can no longer be edited.')
+    return flask.redirect(flask.url_for('admin_event_detail', event_id=event_id))
+
+
 def _parse_pin(lat, lng):
     """The exact-spot pin: both numbers or neither. Bad input is a 400."""
     lat, lng = (lat or '').strip(), (lng or '').strip()
@@ -235,18 +253,47 @@ def _parse_pin(lat, lng):
 
 
 def _validate_event(form):
-    if not form['title'] or not form['location']:
-        flask.abort(400)
-    if len(form['title']) > 200 or len(form['location']) > 300 or len(form['description']) > 10000:
-        flask.abort(400)
-    try:
-        datetime.date.fromisoformat(form['date'])
-        start = datetime.time.fromisoformat(form['start_time'])
-        end = datetime.time.fromisoformat(form['end_time'])
-    except ValueError:
-        flask.abort(400)
-    if start.tzinfo or end.tzinfo or end <= start:
-        flask.abort(400)
+    errors = {}
+    if not form['title']:
+        errors['title'] = 'Enter an event title.'
+    if not form['location']:
+        errors['location'] = 'Enter an event location.'
+
+    limits = {'title': ('Event title', 200), 'location': ('Location', 300),
+              'description': ('Description', 10000)}
+    for key, (label, limit) in limits.items():
+        if len(form[key]) > limit:
+            errors[key] = f'{label} must be {limit:,} characters or fewer.'
+
+    if not form['date']:
+        errors['date'] = 'Select an event date.'
+    else:
+        try:
+            date = datetime.date.fromisoformat(form['date'])
+        except ValueError:
+            errors['date'] = 'Enter a valid date.'
+        else:
+            if date < datetime.datetime.now(checkin.LOCAL_TIMEZONE).date():
+                errors['date'] = 'Select a date on or after today.'
+
+    times = {}
+    for key, missing_msg, invalid_msg in (
+            ('start_time', 'Select a start time.', 'Enter a valid start time.'),
+            ('end_time', 'Select an end time.', 'Enter a valid end time.')):
+        if not form[key]:
+            errors[key] = missing_msg
+            continue
+        try:
+            parsed = datetime.time.fromisoformat(form[key])
+        except ValueError:
+            parsed = None
+        if parsed is None or parsed.tzinfo:
+            errors[key] = invalid_msg
+        else:
+            times[key] = parsed
+    if len(times) == 2 and times['end_time'] <= times['start_time']:
+        errors['end_time'] = 'End time must be after the start time.'
+    return errors
 
 
 @app.route('/admin/events/<int:event_id>')

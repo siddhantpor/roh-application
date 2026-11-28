@@ -13,7 +13,7 @@
       <h1 class="header-bold page-title">{{ 'Edit Event' if event else 'Create an Event' }}</h1>
       <br>
     </div>
-    <form method="post" enctype="multipart/form-data">
+    <form method="post" enctype="multipart/form-data" id="event-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <label class="create-event-card">
         <strong>Event Title <span class="text-red">*</span></strong>
@@ -21,16 +21,16 @@
       </label>
       <label class="create-event-card">
         <strong>Date <span class="text-red">*</span></strong>
-        <input type="date" name="date" value="{{ values.get('date', '') }}" required>
+        <input type="date" name="date" id="event-date" value="{{ values.get('date', '') }}" required>
       </label>
       <div class="create-event-card-row">
         <label class="create-event-card">
           <strong>Start Time <span class="text-red">*</span></strong>
-          <input type="time" name="start_time" value="{{ values.get('start_time', '') }}" required>
+          <input type="time" name="start_time" id="start-time" value="{{ values.get('start_time', '') }}" required>
         </label>
         <label class="create-event-card">
           <strong>End Time <span class="text-red">*</span></strong>
-          <input type="time" name="end_time" value="{{ values.get('end_time', '') }}" required>
+          <input type="time" name="end_time" id="end-time" value="{{ values.get('end_time', '') }}" required>
         </label>
       </div>
       <div class="create-event-card location-field">
@@ -206,6 +206,27 @@
         });
         document.getElementById('pin-cancel').addEventListener('click', closeModal);
         refresh();
+      })();
+
+      (function () {
+        var form = document.getElementById('event-form');
+        var startTime = document.getElementById('start-time'), endTime = document.getElementById('end-time');
+        var serverErrors = {{ errors | tojson }};
+
+        var date = document.getElementById('event-date'), now = new Date();
+        date.min = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+
+        form.addEventListener('input', function (event) {
+          event.target.setCustomValidity('');
+          endTime.setCustomValidity(startTime.value && endTime.value && endTime.value <= startTime.value ? 'End time must be after the start time.' : '');
+        });
+
+        Object.keys(serverErrors).forEach(function (name) {
+          var field = form.elements[name];
+          if (!field) return;
+          field.setCustomValidity(serverErrors[name]);
+        });
+        if (Object.keys(serverErrors).length) form.reportValidity();
       })();
     </script>
   </body>
