@@ -86,6 +86,8 @@ def admin_save_post(post_id=None):
         remaining_images = [image for image in existing_images if str(image['image_id']) not in removed_ids]
         if not post_title or not (body or files or remaining_images):
             flask.abort(400)
+        if len(body.replace('\r\n', '\n')) > 4000:
+            flask.abort(400, 'Post text must be 4,000 characters or fewer.')
         images = []
         deleted_ids = []
         try:

@@ -19,7 +19,7 @@
         </label>
         <label class="create-event-card">
           <strong>Post</strong>
-          <textarea name="body" placeholder="Share an update with the members.">{{ post.body if post else '' }}</textarea>
+          <textarea name="body" placeholder="Share an update with the members." maxlength="4000">{{ post.body if post else '' }}</textarea>
         </label>
         {% if post and post.images %}
           <div class="create-event-card">
