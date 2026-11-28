@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="/static/css/check-in.css">
   </head>
   <body>
-    <div class="page">
-    {% include 'check-in/header.html' %}
+    {% include 'header.html' %}
+    <main class="content">
 
     {# ---------- Figma S11a ---------- #}
     <div class="header-row">
@@ -73,7 +73,7 @@
 
     <p class="text-center"><a href="/admin/events/{{ event.event_id }}/codes">Event codes</a></p>
 
-    {% include 'check-in/footer.html' %}
-    </div>
+    </main>
+    {% include 'footer.html' %}
   </body>
 </html>
