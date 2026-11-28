@@ -18,7 +18,7 @@
 
     <p class="text-center">
       <span class="pill pill-green">Ready {{ ready|length }}</span>
-      <span class="pill pill-yellow">Still checked in {{ still_in|length }}</span>
+      <span class="pill pill-yellow">Pending {{ still_in|length }}</span>
     </p>
 
     {% if msg %}
@@ -27,7 +27,7 @@
 
     {% if still_in|length > 0 %}
       <div class="section-head">
-        <span>Still checked in</span>
+        <span>Pending</span>
         <span>{{ still_in|length }}</span>
       </div>
       {% for r in still_in %}
@@ -41,10 +41,6 @@
       {% endfor %}
     {% endif %}
 
-    <div class="section-head">
-      <span>Ready to approve</span>
-      <span>{{ ready|length }}</span>
-    </div>
     {% if ready|length == 0 %}
       <p class="caption text-gray">(None)</p>
     {% endif %}
