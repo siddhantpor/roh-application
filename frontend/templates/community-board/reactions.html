@@ -15,4 +15,7 @@
       <button type="submit" name="reaction" value="{{ reaction.name }}" class="reaction-pill {{ 'mine' if reaction.mine }}">{{ reaction.emoji }} {{ reaction.count }}</button>
     {% endfor %}
   </form>
+  {% if is_admin and post.reactions %}
+    <a href="{{ url_for('admin_get_post_reactions_list', post_id=post.post_id) }}" class="reactors-link text-dark-gray">View Reactions</a>
+  {% endif %}
 </div>

@@ -33,6 +33,13 @@
         <p class="text-gray">No posts yet.</p>
       {% endfor %}
     </main>
+    <dialog class="reactors-dialog" id="reactors-dialog">
+      <form method="dialog" class="reactors-header">
+        <p class="header-bold">Reactions</p>
+        <button class="button square-button" aria-label="Close">X</button>
+      </form>
+      <ul class="reactors-list" id="reactors-list"></ul>
+    </dialog>
     {% include 'footer.html' %}
     <script src="https://cdn.jsdelivr.net/npm/swiper@12/swiper-bundle.min.js"></script>
     <script>
@@ -63,6 +70,24 @@
         const response = await fetch(form.action, { method: 'POST', body: data });
         if (!response.ok || response.redirected) return;
         row.outerHTML = await response.text();
+      });
+    </script>
+    <script>
+      const reactorsDialog = document.getElementById('reactors-dialog');
+
+      document.addEventListener('click', async (event) => {
+        const link = event.target.closest('.reactors-link');
+        if (!link) return;
+        event.preventDefault();
+
+        const response = await fetch(link.href);
+        if (!response.ok) return;
+        document.getElementById('reactors-list').innerHTML = await response.text();
+        reactorsDialog.showModal();
+      });
+
+      reactorsDialog.addEventListener('click', (event) => {
+        if (event.target === reactorsDialog) reactorsDialog.close();
       });
     </script>
   </body>
