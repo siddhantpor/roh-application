@@ -23,7 +23,9 @@ class NotifyTests(unittest.TestCase):
         queries = ('get_account', 'get_event', 'get_events', 'get_rsvps_for_user', 'add_rsvp',
                    'get_notify_prefs', 'set_notify_prefs', 'get_members_to_notify',
                    'get_rsvped_to_notify', 'get_reminders_due', 'add_reminder_sent',
-                   'set_membership', 'get_members', 'update_event', 'get_checkin', 'get_checkout')
+                   'set_membership', 'get_members', 'update_event', 'get_checkin', 'get_checkout',
+                   'get_admins_to_notify', 'set_admin_notify_prefs', 'get_task_last_run',
+                   'set_task_last_run', 'get_admin_digest', 'add_checkout', 'set_display_name')
         patcher = patch.multiple(database, **dict.fromkeys(queries, DEFAULT))
         self.db = patcher.start()
         self.addCleanup(patcher.stop)
@@ -54,7 +56,10 @@ class NotifyTests(unittest.TestCase):
                           graphic_public_id=None, checkin_code='ABC123', checkout_code='XYZ789',
                           attending=0)
         self.prefs = dict(phone='', notify_new_event=True, notify_rsvp=True,
-                          notify_changes=True, notify_reminder=True, notify_sms=False)
+                          notify_changes=True, notify_reminder=True, notify_sms=False,
+                          notify_admin_signup=True, notify_admin_hours=False)
+        self.admins = [dict(user_id=9, name='Boss', email='boss@example.com', phone='',
+                            notify_sms=False)]
         self.db['get_account'].return_value = self.account
         self.db['get_event'].return_value = self.event
         self.db['get_events'].return_value = [self.event]
@@ -64,6 +69,9 @@ class NotifyTests(unittest.TestCase):
         self.db['get_checkin'].return_value = None
         self.db['get_checkout'].return_value = None
         self.db['set_membership'].return_value = True
+        self.db['get_admins_to_notify'].return_value = self.admins
+        self.db['get_task_last_run'].return_value = None
+        self.db['get_reminders_due'].return_value = []
 
     def sign_in(self, **values):
         self.account.update(values)
@@ -71,8 +79,8 @@ class NotifyTests(unittest.TestCase):
             session.permanent = True
             session.update(user_id=1, auth0_sub='auth0|member')
 
-    def post(self, path, **values):
-        page = self.client.get('/my-profile')
+    def post(self, path, token_page='/my-profile', **values):
+        page = self.client.get(token_page)
         token = re.search(rb'name="csrf_token" value="([^"]+)"', page.data)[1].decode()
         response = self.client.post(path, data={'csrf_token': token, **values})
         self.addCleanup(response.request.environ['wsgi.input'].close)
@@ -147,7 +155,7 @@ class NotifyTests(unittest.TestCase):
         self.assertEqual(self.client.post('/tasks/send-reminders',
                                           headers={'X-Tasks-Token': 'wrong'}).status_code, 403)
         response = self.client.post('/tasks/send-reminders', headers={'X-Tasks-Token': 'tok'})
-        self.assertEqual(response.get_json(), {'sent': 1})
+        self.assertEqual(response.get_json()['sent'], 1)
         self.db['add_reminder_sent'].assert_called_once()
         self.assertEqual(self.db['add_reminder_sent'].call_args[0][:2], (1, 1))
 
@@ -161,6 +169,61 @@ class NotifyTests(unittest.TestCase):
             app.config['SMTP2GO_API_KEY'] = ''
             self.assertFalse(self.real_send_email('x@example.com', 'subj', 'body'))
             post.assert_not_called()
+
+    def test_admin_signup_email_only_on_first_name(self):
+        self.sign_in(display_name='', pending=True, approved=False)
+        self.post('/profile', token_page='/profile', display_name='New Kid')
+        self.send_email.assert_called_once()
+        self.assertEqual(self.send_email.call_args[0][0], 'boss@example.com')
+        self.db['get_admins_to_notify'].assert_called_with('notify_admin_signup')
+        self.send_email.reset_mock()
+        self.sign_in(display_name='New Kid')
+        self.post('/profile', display_name='Newer Kid')
+        self.send_email.assert_not_called()
+
+    def test_hours_review_email_on_checkout(self):
+        self.sign_in()
+        self.db['get_checkin'].return_value = {'time': '2026-12-01T14:00:00'}
+        self.db['add_checkout'].return_value = True
+        self.post('/member/events/1/handlecheckout', code='XYZ789')
+        self.db['get_admins_to_notify'].assert_called_with('notify_admin_hours')
+        self.assertIn('Hours to review', self.send_email.call_args[0][1])
+
+    def test_admin_checkboxes_saved_for_admins_only(self):
+        self.sign_in()
+        self.post('/my-profile/notifications', notify_admin_signup='on')
+        self.db['set_admin_notify_prefs'].assert_not_called()
+        self.sign_in(is_admin=True)
+        self.post('/my-profile/notifications', notify_admin_hours='on')
+        self.db['set_admin_notify_prefs'].assert_called_once_with(
+            1, {'notify_admin_signup': False, 'notify_admin_hours': True})
+
+    def test_digest_due_logic(self):
+        import datetime
+        monday_9 = datetime.datetime(2026, 11, 30, 9, 0)      # a monday
+        self.assertEqual(notify._last_digest_due(monday_9), datetime.datetime(2026, 11, 30, 8, 0))
+        monday_7 = datetime.datetime(2026, 11, 30, 7, 0)
+        self.assertEqual(notify._last_digest_due(monday_7), datetime.datetime(2026, 11, 23, 8, 0))
+        thursday = datetime.datetime(2026, 12, 3, 19, 0)
+        self.assertEqual(notify._last_digest_due(thursday), datetime.datetime(2026, 11, 30, 8, 0))
+
+    def test_digest_sends_once(self):
+        self.db['get_admin_digest'].return_value = dict(
+            pending_accounts=[dict(name='New Kid', email='k@example.com')],
+            pending_hours=[], events_held=[], new_rsvps=3, new_posts=[],
+            upcoming=[dict(event_title='Park Cleanup', event_date='2026-12-05',
+                           start_time='09:00', attending=4)])
+        with app.test_request_context():
+            self.assertTrue(notify.send_admin_digest_if_due())
+            body = self.send_email.call_args[0][2]
+            self.assertIn('New Kid', body)
+            self.assertIn('3 new RSVP', body)
+            self.assertIn('4 attending', body)
+            self.db['set_task_last_run'].assert_called_once()
+            # pretend it just ran
+            import datetime
+            self.db['get_task_last_run'].return_value = datetime.datetime.now()
+            self.assertFalse(notify.send_admin_digest_if_due())
 
 
 if __name__ == '__main__':
