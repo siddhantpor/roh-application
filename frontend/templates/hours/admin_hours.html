@@ -99,6 +99,7 @@
         const page = new DOMParser().parseFromString(html, 'text/html');
         document.querySelector('#member-hours').innerHTML =
           page.querySelector('#member-hours').innerHTML;
+        history.replaceState(null, '', `/admin/hours?${params}`);
       }
 
       startDate.addEventListener('change', updateHours);
