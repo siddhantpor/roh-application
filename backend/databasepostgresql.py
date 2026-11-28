@@ -864,6 +864,19 @@ def get_user_reactions(user_id):
     return dict(rows)
 
 
+def get_reactors(post_id):
+    with _get_pool().connection() as connection:
+        rows = connection.execute(
+            """
+            SELECT COALESCE(a.display_name, a.email), r.reaction, r.reacted_at
+            FROM post_reactions r JOIN accounts a ON a.user_id = r.user_id
+            WHERE r.post_id = %s ORDER BY r.reacted_at
+        """,
+            [post_id],
+        ).fetchall()
+    return [{"name": row[0], "reaction": row[1], "reacted_at": row[2]} for row in rows]
+
+
 def toggle_reaction(post_id, user_id, reaction):
     with _get_pool().connection() as connection:
         removed = connection.execute(

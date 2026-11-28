@@ -578,6 +578,66 @@ th, td { padding: 10px; text-align: left; vertical-align: top; }
   background: var(--green);
 }
 
+.reactors-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  margin-left: auto;
+  font-size: 12px;
+}
+
+body:has(.reactors-dialog[open]) {
+  overflow: hidden;
+}
+
+.reactors-dialog {
+  width: min(480px, calc(100% - 32px));
+  max-height: min(70vh, 600px);
+  padding: 0;
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 12px;
+}
+
+.reactors-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.reactors-dialog::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.reactors-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.1);
+}
+
+.reactors-header p { margin: 0; }
+
+.reactors-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 4px 16px 12px;
+  list-style: none;
+}
+
+.reactor {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.06);
+}
+
+.reactor:last-child { border-bottom: none; }
+.reactor-emoji { font-size: 18px; }
+.reactor-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.reactor-time { font-size: 12px; white-space: nowrap; }
+
 /* Location autocomplete */
 .location-field { position: relative; }
 .location-suggestions { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; margin: 0; padding: 0; list-style: none;

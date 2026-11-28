@@ -1,0 +1,7 @@
+{% for reactor in reactors %}
+  <li class="reactor">
+    <span class="reactor-emoji">{{ reactor.emoji }}</span>
+    <span class="reactor-name">{{ reactor.name }}</span>
+    <span class="reactor-time text-gray">{{ reactor.reacted_at | format_date }}, {{ reactor.reacted_at.strftime('%H:%M') | format_time }}</span>
+  </li>
+{% endfor %}
