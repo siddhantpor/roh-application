@@ -1,11 +1,19 @@
 """Email (and someday SMS) notifications for volunteers.
 
-Email goes out through SMTP2GO's http api. If SMTP2GO_API_KEY isn't set
-(local dev, teammates' machines) nothing is sent and we just log what
-would have gone out. SMS is a stub for now, see send_sms.
+EMAIL_BACKEND in .env picks how email goes out:
+  - "gmail": plain gmail smtp with an app password (GMAIL_USER +
+    GMAIL_APP_PASSWORD). 2-step verification has to be on for the account.
+    Use this if the sending address is a gmail.
+  - "smtp2go": SMTP2GO's http api (SMTP2GO_API_KEY + NOTIFY_FROM). They only
+    verify senders on a domain you own (not gmail/princeton), so use this
+    if Rays of Hope has their own domain and it's set up in smtp2go.
+  - "off" or blank: nothing is sent, we just log what would have gone out.
+SMS is a stub for now, see send_sms.
 """
 import datetime
+import email.message
 import hmac
+import smtplib
 import threading
 import zoneinfo
 
@@ -29,8 +37,13 @@ _lazy_lock = threading.Lock()
 
 
 def init(app):
+    app.config['EMAIL_BACKEND'] = (app.config.get('EMAIL_BACKEND') or 'off').strip().lower()
+    if app.config['EMAIL_BACKEND'] not in ('gmail', 'smtp2go', 'off'):
+        raise ValueError('EMAIL_BACKEND must be gmail, smtp2go or off')
     app.config['SMTP2GO_API_KEY'] = app.config.get('SMTP2GO_API_KEY', '')
     app.config['NOTIFY_FROM'] = app.config.get('NOTIFY_FROM', '')
+    app.config['GMAIL_USER'] = app.config.get('GMAIL_USER', '')
+    app.config['GMAIL_APP_PASSWORD'] = app.config.get('GMAIL_APP_PASSWORD', '')
     app.config['TASKS_TOKEN'] = app.config.get('TASKS_TOKEN', '')
     app.add_url_rule('/my-profile/notifications', view_func=handle_prefs, methods=['POST'])
     app.add_url_rule('/tasks/send-reminders', view_func=handle_send_reminders, methods=['POST'])
@@ -70,11 +83,39 @@ def _looks_like_phone(phone):
 
 def send_email(to, subject, body):
     # returns True if it was actually sent
+    config = flask.current_app.config
+    backend = config['EMAIL_BACKEND']
+    if backend == 'smtp2go' and config['SMTP2GO_API_KEY'] and config['NOTIFY_FROM']:
+        return _send_smtp2go(to, subject, body)
+    if backend == 'gmail' and config['GMAIL_USER'] and config['GMAIL_APP_PASSWORD']:
+        return _send_gmail(to, subject, body)
+    if backend != 'off':
+        flask.current_app.logger.warning('EMAIL_BACKEND=%s but its settings are missing', backend)
+    flask.current_app.logger.info('email not configured, would send to %s: %s', to, subject)
+    return False
+
+
+def _send_gmail(to, subject, body):
+    user = flask.current_app.config['GMAIL_USER']
+    password = flask.current_app.config['GMAIL_APP_PASSWORD']
+    msg = email.message.EmailMessage()
+    msg['From'] = 'Rays of Hope <' + user + '>'
+    msg['To'] = to
+    msg['Subject'] = subject
+    msg.set_content(body)
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=15) as smtp:
+            smtp.login(user, password)
+            smtp.send_message(msg)
+    except (smtplib.SMTPException, OSError) as ex:
+        flask.current_app.logger.warning('email to %s failed: %s', to, ex)
+        return False
+    return True
+
+
+def _send_smtp2go(to, subject, body):
     key = flask.current_app.config['SMTP2GO_API_KEY']
     sender = flask.current_app.config['NOTIFY_FROM']
-    if not key or not sender:
-        flask.current_app.logger.info('email not configured, would send to %s: %s', to, subject)
-        return False
     try:
         response = requests.post(SMTP2GO_URL, timeout=10,
             headers={'X-Smtp2go-Api-Key': key, 'Content-Type': 'application/json'},

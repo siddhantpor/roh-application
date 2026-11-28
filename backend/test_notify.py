@@ -33,7 +33,8 @@ class NotifyTests(unittest.TestCase):
         self.addCleanup(app.config.update, original_config)
         app.config.update({
             'TESTING': True, 'WTF_CSRF_ENABLED': True, 'SESSION_COOKIE_SECURE': False,
-            'SMTP2GO_API_KEY': 'key', 'NOTIFY_FROM': 'roh@example.com', 'TASKS_TOKEN': 'tok',
+            'EMAIL_BACKEND': 'smtp2go', 'SMTP2GO_API_KEY': 'key', 'NOTIFY_FROM': 'roh@example.com',
+            'TASKS_TOKEN': 'tok',
         })
         self.client = app.test_client()
         auth_client = patch.object(auth.oauth, 'auth0')
@@ -159,6 +160,20 @@ class NotifyTests(unittest.TestCase):
         self.db['add_reminder_sent'].assert_called_once()
         self.assertEqual(self.db['add_reminder_sent'].call_args[0][:2], (1, 1))
 
+    def test_send_email_uses_gmail_when_configured(self):
+        app.config.update({'EMAIL_BACKEND': 'gmail', 'GMAIL_USER': 'roh@gmail.com',
+                           'GMAIL_APP_PASSWORD': 'abcd'})
+        with app.test_request_context(), patch.object(notify.smtplib, 'SMTP_SSL') as smtp_ssl:
+            smtp = smtp_ssl.return_value.__enter__.return_value
+            self.assertTrue(self.real_send_email('x@example.com', 'subj', 'body'))
+            smtp_ssl.assert_called_once_with('smtp.gmail.com', 465, timeout=15)
+            smtp.login.assert_called_once_with('roh@gmail.com', 'abcd')
+            msg = smtp.send_message.call_args[0][0]
+            self.assertEqual(msg['To'], 'x@example.com')
+            self.assertEqual(msg['Subject'], 'subj')
+            smtp.login.side_effect = notify.smtplib.SMTPAuthenticationError(535, b'bad')
+            self.assertFalse(self.real_send_email('x@example.com', 'subj', 'body'))
+
     def test_send_email_calls_smtp2go_only_with_key(self):
         with app.test_request_context(), patch.object(notify.requests, 'post') as post:
             self.assertTrue(self.real_send_email('x@example.com', 'subj', 'body'))
@@ -166,7 +181,11 @@ class NotifyTests(unittest.TestCase):
             self.assertEqual(post.call_args[1]['headers']['X-Smtp2go-Api-Key'], 'key')
             self.assertEqual(post.call_args[1]['json']['to'], ['x@example.com'])
             post.reset_mock()
-            app.config['SMTP2GO_API_KEY'] = ''
+            app.config['EMAIL_BACKEND'] = 'off'
+            self.assertFalse(self.real_send_email('x@example.com', 'subj', 'body'))
+            post.assert_not_called()
+            # backend picked but not filled in: still no crash, nothing sent
+            app.config.update({'EMAIL_BACKEND': 'smtp2go', 'SMTP2GO_API_KEY': ''})
             self.assertFalse(self.real_send_email('x@example.com', 'subj', 'body'))
             post.assert_not_called()
 
