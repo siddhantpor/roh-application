@@ -7,19 +7,18 @@
     <link rel="stylesheet" href="/static/css/check-in.css">
   </head>
   <body>
-    <div class="page">
-    {% include 'check-in/header.html' %}
+    {% include 'header.html' %}
+    <main class="content">
 
     {# ---------- Figma S11a ---------- #}
     <div class="header-row">
-      <a href="/admin/events/{{ event.event_id }}" class="button button-shadow square-button">&lt;</a>
       <h1 class="header-bold page-title">Review Hours</h1>
     </div>
     <p class="caption text-center text-gray">{{ event.event_title }} · {{ event_when }}</p>
 
     <p class="text-center">
       <span class="pill pill-green">Ready {{ ready|length }}</span>
-      <span class="pill pill-yellow">Still checked in {{ still_in|length }}</span>
+      <span class="pill pill-yellow">Pending {{ still_in|length }}</span>
     </p>
 
     {% if msg %}
@@ -28,7 +27,7 @@
 
     {% if still_in|length > 0 %}
       <div class="section-head">
-        <span>Still checked in</span>
+        <span>Pending</span>
         <span>{{ still_in|length }}</span>
       </div>
       {% for r in still_in %}
@@ -42,10 +41,6 @@
       {% endfor %}
     {% endif %}
 
-    <div class="section-head">
-      <span>Ready to approve</span>
-      <span>{{ ready|length }}</span>
-    </div>
     {% if ready|length == 0 %}
       <p class="caption text-gray">(None)</p>
     {% endif %}
@@ -78,7 +73,7 @@
 
     <p class="text-center"><a href="/admin/events/{{ event.event_id }}/codes">Event codes</a></p>
 
-    {% include 'check-in/footer.html' %}
-    </div>
+    </main>
+    {% include 'footer.html' %}
   </body>
 </html>

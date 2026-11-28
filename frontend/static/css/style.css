@@ -98,11 +98,6 @@ input, textarea {
   text-align: center;
 }
 
-.header-row:has(.page-title)::after {
-  content: "";
-  width: 34px;
-}
-
 .button {
   display: inline-flex;
   align-items: center;

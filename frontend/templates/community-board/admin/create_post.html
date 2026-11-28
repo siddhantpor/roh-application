@@ -9,7 +9,6 @@
     {% include 'header.html' %}
     <main class="content">
       <div class="header-row">
-        <a href="{{ url_for('community_board') }}" class="button button-shadow square-button">&lt;</a>
         <h1 class="header-bold page-title">{{ 'Edit Post' if post else 'Create Post' }}</h1>
       </div>
       <form method="post" enctype="multipart/form-data">
