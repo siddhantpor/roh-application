@@ -20,6 +20,7 @@ from pathlib import Path
 import flask
 import auth
 import databasepostgresql as database
+import notify
 
 #-----------------------------------------------------------------------
 # Design choices (see README.md, "Design choices")
@@ -188,6 +189,7 @@ def handle_member_checkout(event_id):
             msg = 'You already checked out of this event.'
         else:
             msg = ''
+            notify.hours_need_review(user_id, event_id)
 
     return _redirect_after_member_post(event_id, msg)
 

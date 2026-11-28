@@ -223,3 +223,16 @@ def new_pending_account(user_id):
     for admin in database.get_admins_to_notify('notify_admin_signup'):
         send_email(admin['email'], 'New volunteer waiting for approval: ' + account['display_name'],
                    body)
+
+
+def hours_need_review(user_id, event_id):
+    # someone just checked out. off by default for admins, it's a lot of mail
+    account = database.get_account(user_id)
+    event = database.get_event(event_id)
+    if account is None or event is None:
+        return
+    body = (account['display_name'] + ' checked out of ' + event['event_title'] + ' (' +
+            _when(event) + ') and their hours are waiting for review.\n\n' +
+            flask.url_for('admin_volunteer_hours', _external=True) + '\n')
+    for admin in database.get_admins_to_notify('notify_admin_hours'):
+        send_email(admin['email'], 'Hours to review: ' + account['display_name'], body)
