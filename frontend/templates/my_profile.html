@@ -39,6 +39,13 @@
       </label>
       <label><input type="checkbox" name="notify_sms" {% if prefs.notify_sms %}checked{% endif %}>
         also text me reminders</label><br>
+      {% if current_user.is_admin %}
+      <p>Admin emails (you also get a summary every Monday morning):</p>
+      <label><input type="checkbox" name="notify_admin_signup" {% if prefs.notify_admin_signup %}checked{% endif %}>
+        a new volunteer signs up and needs approval</label><br>
+      <label><input type="checkbox" name="notify_admin_hours" {% if prefs.notify_admin_hours %}checked{% endif %}>
+        a volunteer checks out and their hours need review</label><br>
+      {% endif %}
       <button type="submit" class="action-button action-primary">Save</button>
     </form>
     <form action="/logout" method="post">

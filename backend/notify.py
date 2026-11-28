@@ -52,6 +52,9 @@ def handle_prefs():
     if not phone:
         flags['notify_sms'] = False
     database.set_notify_prefs(user_id, phone, flags)
+    if auth.get_user()['is_admin']:
+        admin_flags = {flag: flask.request.form.get(flag) == 'on' for flag in database.ADMIN_FLAGS}
+        database.set_admin_notify_prefs(user_id, admin_flags)
     flask.flash('Notification settings saved.')
     return flask.redirect(flask.url_for('my_profile'))
 
