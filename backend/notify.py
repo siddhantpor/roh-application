@@ -204,3 +204,22 @@ def _lazy_reminder_check():
     except Exception as ex:
         # never let this take down a normal page
         flask.current_app.logger.warning('reminder check failed: %s', ex)
+
+#-----------------------------------------------------------------------
+# Admin side
+#-----------------------------------------------------------------------
+
+def _members_link():
+    return flask.url_for('members', _external=True)
+
+
+def new_pending_account(user_id):
+    # a volunteer finished signing up and is waiting on the members page
+    account = database.get_account(user_id)
+    if account is None or not account['pending']:
+        return
+    body = (account['display_name'] + ' (' + (account['email'] or 'no email') + ') just '
+            'signed up and is waiting for approval.\n\nReview here: ' + _members_link() + '\n')
+    for admin in database.get_admins_to_notify('notify_admin_signup'):
+        send_email(admin['email'], 'New volunteer waiting for approval: ' + account['display_name'],
+                   body)

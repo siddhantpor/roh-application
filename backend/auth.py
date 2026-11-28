@@ -126,6 +126,10 @@ def profile():
         if not display_name or len(display_name) > 100:
             return flask.redirect(flask.url_for('profile'))
         database.set_display_name(user['user_id'], display_name)
+        if not user['display_name'] and user['pending']:
+            # first time they set a name = signup is done, tell the admins
+            import notify
+            notify.new_pending_account(user['user_id'])
         return flask.redirect('/')
     return flask.render_template('profile.html', display_name=user['display_name'] or '')
 
